@@ -1,0 +1,48 @@
+{
+  "target_roles": [
+    "Full Stack Engineer",
+    "Python Developer",
+    "AI Engineer",
+    "Backend Developer",
+    "Software Engineer"
+  ],
+  "experience_levels": [
+    "entry_level",
+    "mid_level",
+    "associate"
+  ],
+  "locations": [
+    "Remote",
+    "Bengaluru",
+    "Hyderabad",
+    "Mumbai",
+    "San Francisco, CA"
+  ],
+  "remote_only": false,
+  "max_job_age_hours": 24,
+  "polling_interval_minutes": 15,
+  "match_threshold_percent": 70,
+  "auto_apply": false,
+  "platforms": {
+    "linkedin": true,
+    "indeed": true,
+    "wellfound": true,
+    "naukri": true,
+    "internshala": true,
+    "ats_direct": true,
+    "unstop": true
+  },
+  "blacklist_companies": [
+    "Revature",
+    "Outlier"
+  ],
+  "direct_ats_companies": [
+    "stripe",
+    "figma",
+    "openai",
+    "anthropic",
+    "vercel",
+    "supabase",
+    "datadog"
+  ]
+}
