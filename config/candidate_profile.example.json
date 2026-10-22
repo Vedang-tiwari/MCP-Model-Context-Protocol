@@ -1,0 +1,80 @@
+{
+  "personal_info": {
+    "full_name": "Alex Mercer",
+    "email": "alex.mercer@example.com",
+    "phone": "+1 (555) 019-2834",
+    "country_code": "+1",
+    "current_city": "San Francisco, CA",
+    "country": "United States",
+    "postal_code": "94107",
+    "linkedin_url": "https://linkedin.com/in/alexmercer-dev",
+    "github_url": "https://github.com/alexmercer-dev",
+    "portfolio_url": "https://alexmercer.dev",
+    "twitter_url": "https://twitter.com/alexmercer_dev"
+  },
+  "summary": "Full Stack & AI Engineer with 4+ years of experience building resilient microservices, distributed scrapers, and LLM-powered applications in Python and TypeScript.",
+  "skills": {
+    "languages": ["Python", "TypeScript", "JavaScript", "Go", "SQL"],
+    "frameworks": ["FastAPI", "Next.js", "React", "Node.js", "Django", "Playwright"],
+    "databases": ["PostgreSQL", "Redis", "MongoDB", "SQLite"],
+    "cloud_and_devops": ["Docker", "AWS (ECS, S3, Lambda)", "Kubernetes", "GitHub Actions", "Terraform"],
+    "ai_and_agents": ["Model Context Protocol (MCP)", "LangChain", "LlamaIndex", "OpenAI API", "Anthropic Claude"]
+  },
+  "work_experience": [
+    {
+      "company": "TechNova Solutions",
+      "role": "Senior Full Stack Engineer",
+      "start_date": "2022-03",
+      "end_date": "Present",
+      "location": "San Francisco, CA (Hybrid)",
+      "description": "Architected real-time data streaming pipelines and agentic automation tools processing 2M+ records daily."
+    },
+    {
+      "company": "Apex Cloud Systems",
+      "role": "Software Engineer",
+      "start_date": "2020-06",
+      "end_date": "2022-02",
+      "location": "Remote",
+      "description": "Built resilient backend APIs and automated workflow integrations using Python and React."
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of California, Berkeley",
+      "degree": "Bachelor of Science",
+      "field_of_study": "Computer Science",
+      "graduation_year": 2020,
+      "gpa": "3.8/4.0"
+    }
+  ],
+  "standard_answers": {
+    "years_of_experience": 4,
+    "notice_period_days": 15,
+    "willing_to_relocate": true,
+    "open_to_remote": true,
+    "work_authorization": "Authorized to work in US without sponsorship",
+    "requires_sponsorship": false,
+    "expected_salary_usd": 150000,
+    "expected_salary_inr": 3500000,
+    "currency_preference": "USD",
+    "eeo": {
+      "gender": "Decline to self-identify",
+      "race_ethnicity": "Decline to self-identify",
+      "veteran_status": "I am not a protected veteran",
+      "disability_status": "No, I do not have a disability"
+    }
+  },
+  "qa_knowledge_base": [
+    {
+      "topic": "motivation",
+      "question_keywords": ["why do you want to work here", "why this company", "what interests you"],
+      "answer": "I am drawn by your mission to build innovative, high-impact products. My background in building scalable distributed systems and AI agents directly aligns with your technical roadmap."
+    },
+    {
+      "topic": "challenge",
+      "question_keywords": ["biggest technical challenge", "difficult bug", "challenging project"],
+      "answer": "At TechNova, I diagnosed a subtle distributed race condition in our event ingestion pipeline that caused intermittent memory leaks. I refactored the consumer groups with dead-letter queues and idempotency keys, boosting throughput by 40% and eliminating drops."
+    }
+  ],
+  "resume_file_path": "config/resume.pdf"
+}
