@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en" style="background-color: #101010;">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#101010">
+  <meta name="description" content="Autonomous 24/7/365 real-time job discovery, fit evaluation, and application agent inspired by Model Context Protocol.">
+  <title>MCP — Autonomous Job Scout & Application Agent</title>
+  
+  <!-- Typography Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Geist:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-logo">
+          <span>MCP</span>
+          <span class="brand-badge">JOB AGENT</span>
+        </div>
+      </div>
+
+      <nav class="nav-tabs" aria-label="Main Navigation">
+        <button class="nav-tab active" data-view="jobs" id="tab-jobs">
+          <span>Jobs Feed</span>
+          <span class="tab-count tabular-nums" id="badge-total-jobs">0</span>
+        </button>
+        <button class="nav-tab" data-view="scout" id="tab-scout">
+          <span>Scout Engine</span>
+        </button>
+        <button class="nav-tab" data-view="vault" id="tab-vault">
+          <span>Candidate Vault</span>
+        </button>
+        <button class="nav-tab" data-view="platforms" id="tab-platforms">
+          <span>Platforms</span>
+          <span class="tab-count tabular-nums" id="badge-total-platforms">10</span>
+        </button>
+        <button class="nav-tab" data-view="system" id="tab-system">
+          <span>System & MCP</span>
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <div class="status-pill">
+          <span class="status-dot active"></span>
+          <span id="daemon-status-text">Scout Ready</span>
+        </div>
+        <button class="button button-primary button-sm" id="btn-quick-scout">
+          <span id="scout-btn-icon">⚡</span>
+          <span>Run Discovery Sweep</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- VIEW 1: JOBS FEED -->
+    <section class="view-section active" id="view-jobs">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h1>Discovered Postings</h1>
+          <p class="section-subtitle">Real-time candidate matches filtered across 10+ career boards and direct ATS endpoints.</p>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-grid">
+        <div class="stat-card" data-filter-status="">
+          <div class="stat-label">
+            <span>TOTAL DISCOVERED</span>
+            <span class="badge">24H</span>
+          </div>
+          <div class="stat-value tabular-nums" id="stat-total-discovered">0</div>
+          <div class="stat-meta">Indexed across all enabled platforms</div>
+        </div>
+
+        <div class="stat-card" data-filter-min-score="70">
+          <div class="stat-label">
+            <span>QUALIFIED MATCHES</span>
+            <span class="badge badge-success">≥ 70%</span>
+          </div>
+          <div class="stat-value tabular-nums" id="stat-high-match">0</div>
+          <div class="stat-meta">Exceeds candidate fit threshold</div>
+        </div>
+
+        <div class="stat-card" data-filter-status="APPLIED">
+          <div class="stat-label">
+            <span>APPLICATIONS SENT</span>
+            <span class="badge">DISPATCHED</span>
+          </div>
+          <div class="stat-value tabular-nums" id="stat-total-applied">0</div>
+          <div class="stat-meta">Automated submissions with evidence</div>
+        </div>
+
+        <div class="stat-card" data-nav="platforms">
+          <div class="stat-label">
+            <span>ACTIVE PLATFORMS</span>
+            <span class="badge badge-success">ONLINE</span>
+          </div>
+          <div class="stat-value tabular-nums" id="stat-active-platforms">10</div>
+          <div class="stat-meta">ATS, LinkedIn, Indeed, RemoteOK, etc.</div>
+        </div>
+      </div>
+
+      <!-- Filter Toolbar -->
+      <div class="filter-toolbar">
+        <div class="search-box">
+          <input type="text" class="input" id="filter-search" placeholder="Search by role, company, or tech stack (e.g. Python, AI, Stripe)...">
+        </div>
+
+        <select class="select filter-select" id="filter-platform">
+          <option value="">All Platforms</option>
+          <option value="ats_direct">Direct ATS (Greenhouse/Lever)</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="indeed">Indeed</option>
+          <option value="wellfound">Wellfound</option>
+          <option value="naukri">Naukri</option>
+          <option value="internshala">Internshala</option>
+          <option value="jobicy">Jobicy API</option>
+          <option value="weworkremotely">WeWorkRemotely</option>
+          <option value="remoteok">RemoteOK</option>
+        </select>
+
+        <select class="select filter-select" id="filter-score">
+          <option value="">Any Match Score</option>
+          <option value="70">Strong Fit (≥ 70%)</option>
+          <option value="50">Moderate Fit (≥ 50%)</option>
+          <option value="30">Partial Match (≥ 30%)</option>
+        </select>
+
+        <select class="select filter-select" id="filter-status">
+          <option value="">All Statuses</option>
+          <option value="DISCOVERED">Discovered</option>
+          <option value="EVALUATED">Evaluated</option>
+          <option value="QUEUED">Queued for Apply</option>
+          <option value="APPLIED">Applied</option>
+          <option value="MANUAL_REVIEW">Manual Review</option>
+        </select>
+
+        <button class="button button-secondary button-sm" id="btn-reset-filters">Reset</button>
+      </div>
+
+      <!-- Job List Container -->
+      <div class="jobs-container" id="jobs-list">
+        <div style="padding: 40px; text-align: center; color: var(--color-text-subtle);">
+          Loading discovered jobs from local database...
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: SCOUT ENGINE -->
+    <section class="view-section" id="view-scout">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h1>Scout Engine</h1>
+          <p class="section-subtitle">Real-time multi-platform crawling, RSS syndication, and direct ATS board monitoring.</p>
+        </div>
+        <button class="button button-primary" id="btn-run-scout-full">
+          <span>Trigger Live Sweep</span>
+        </button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); margin-bottom: var(--space-6);">
+        <!-- Crawl Config Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Active Scout Configuration</span>
+            <span class="badge badge-success">CONFIGURED</span>
+          </div>
+
+          <div class="form-group">
+            <label class="input-label">Target Role Keywords</label>
+            <div id="scout-roles-display" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px;">
+              <!-- Dynamic tags -->
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="input-label">Max Job Freshness Window</label>
+            <div class="input" style="display: flex; align-items: center; justify-content: space-between;">
+              <span>Past 24 Hours (Real-time delta)</span>
+              <span class="badge">f_TPR=r86400</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="input-label">Auto-Apply Threshold</label>
+            <div class="input" style="display: flex; align-items: center; justify-content: space-between;">
+              <span id="scout-threshold-display">70% Match Score</span>
+              <span class="badge" id="scout-autoapply-badge">REVIEW MODE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Platform Health Matrix -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Provider Pipeline Status</span>
+            <span class="badge">10 SOURCES</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;" id="scout-provider-list">
+            <!-- Dynamic provider list -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution Log Panel -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Real-Time Discovery Log</span>
+          <span class="badge" style="font-family: var(--font-mono);">LIVE STREAM</span>
+        </div>
+        <div class="code-box" id="scout-console" style="height: 220px; overflow-y: auto;">
+[SYSTEM] Ready for discovery sweep across 10 platforms.
+[DATABASE] Connected to SQLite store at data/mcp_jobs.db.
+[INFO] Click 'Trigger Live Sweep' to scan LinkedIn, Indeed, Greenhouse, Lever, and custom RSS feeds.
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: CANDIDATE VAULT -->
+    <section class="view-section" id="view-vault">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h1>Candidate Vault</h1>
+          <p class="section-subtitle">Structured credentials, screening answer bank, and multi-role preferences for the LLM solver.</p>
+        </div>
+        <button class="button button-primary" id="btn-save-profile">Save Changes</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: var(--space-5);">
+        <!-- Form Fields -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Personal Credentials</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+            <div class="form-group">
+              <label class="input-label" for="prof-name">Full Name</label>
+              <input type="text" class="input" id="prof-name">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-email">Email Address</label>
+              <input type="email" class="input" id="prof-email">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-phone">Phone Number</label>
+              <input type="text" class="input" id="prof-phone">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-city">Current City & Country</label>
+              <input type="text" class="input" id="prof-city">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-linkedin">LinkedIn URL</label>
+              <input type="url" class="input" id="prof-linkedin">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-github">GitHub URL</label>
+              <input type="url" class="input" id="prof-github">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="input-label" for="prof-summary">Professional Summary</label>
+            <textarea class="textarea" id="prof-summary" rows="3"></textarea>
+          </div>
+
+          <div class="panel-header" style="margin-top: var(--space-6);">
+            <span class="panel-title">Standard Screening Q&A Defaults</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+            <div class="form-group">
+              <label class="input-label" for="prof-experience">Years of Experience</label>
+              <input type="number" class="input" id="prof-experience">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-notice">Notice Period (Days)</label>
+              <input type="number" class="input" id="prof-notice">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-salary-usd">Expected Salary (USD)</label>
+              <input type="number" class="input" id="prof-salary-usd">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-salary-inr">Expected Salary (INR)</label>
+              <input type="number" class="input" id="prof-salary-inr">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-workauth">Work Authorization</label>
+              <input type="text" class="input" id="prof-workauth">
+            </div>
+            <div class="form-group">
+              <label class="input-label" for="prof-resume-path">Resume File Path</label>
+              <input type="text" class="input" id="prof-resume-path">
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Preferences & Filters -->
+        <div style="display: flex; flex-direction: column; gap: var(--space-4);">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Target Role Keywords</span>
+            </div>
+            <p class="input-hint" style="margin-bottom: var(--space-3);">Add titles you want the 24/7 scout to monitor across platforms.</p>
+            <div class="form-group">
+              <textarea class="textarea" id="prefs-roles" rows="4" placeholder="One role per line e.g.&#10;Full Stack Engineer&#10;AI Engineer&#10;Python Developer"></textarea>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Automation & Fit Thresholds</span>
+            </div>
+            
+            <div class="form-group">
+              <label class="input-label" for="prefs-threshold">Match Threshold Score (<span id="threshold-val">70</span>%)</label>
+              <input type="range" min="30" max="95" value="70" class="input" style="padding: 0; cursor: pointer;" id="prefs-threshold">
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-2);">
+              <div>
+                <div style="font-size: 13px; font-weight: 500;">Auto-Pilot Mode</div>
+                <div class="input-hint">Automatically dispatch applications exceeding threshold</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="prefs-autoapply">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; padding-top: var(--space-2);">
+              <div>
+                <div style="font-size: 13px; font-weight: 500;">Remote Roles Only</div>
+                <div class="input-hint">Ignore on-site listings</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="prefs-remoteonly">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: PLATFORMS REGISTRY -->
+    <section class="view-section" id="view-platforms">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h1>Platform Registry</h1>
+          <p class="section-subtitle">Manage built-in job providers, RSS feeds, JSON APIs, and drop-in Python plugins.</p>
+        </div>
+        <button class="button button-primary" id="btn-open-add-platform">Add New Platform</button>
+      </div>
+
+      <div class="platform-grid" id="platforms-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+    <!-- VIEW 5: SYSTEM & MCP -->
+    <section class="view-section" id="view-system">
+      <div class="section-header">
+        <div class="section-title-wrap">
+          <h1>System Configuration & MCP</h1>
+          <p class="section-subtitle">Model Context Protocol server status, open-source LLM baseline, and runtime telemetry.</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5);">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Baseline Open-Source Model</span>
+            <span class="badge badge-success" id="sys-llm-provider">GROQ</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+            <div>
+              <div class="input-label">Model Identifier</div>
+              <div class="code-box" id="sys-llm-model">llama-3.3-70b-versatile</div>
+            </div>
+            <div>
+              <div class="input-label">Function Calling / Tool Calling</div>
+              <div style="font-size: 13px; color: var(--color-text-muted);">
+                Native JSON tool-calling enabled for candidate fit reasoning and screening question synthesis.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Local Storage & Database</span>
+            <span class="badge">SQLITE3</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: var(--space-3);">
+            <div>
+              <div class="input-label">Database File</div>
+              <div class="code-box" id="sys-db-path">data/mcp_jobs.db</div>
+            </div>
+            <div>
+              <div class="input-label">Storage Footprint</div>
+              <div class="tabular-nums" id="sys-db-size" style="font-size: 14px; color: var(--color-text);">0 KB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top: var(--space-5);">
+        <div class="panel-header">
+          <span class="panel-title">Model Context Protocol (MCP) Client Config</span>
+          <span class="badge">STDIO</span>
+        </div>
+        <p class="input-hint" style="margin-bottom: var(--space-3);">
+          Paste this configuration snippet into your Claude Desktop, Cursor, or Antigravity IDE settings:
+        </p>
+        <div class="code-box" id="mcp-config-snippet">{
+  "mcpServers": {
+    "job-agent": {
+      "command": "python",
+      "args": ["-m", "mcp_server.server"],
+      "cwd": "D:\\MCP"
+    }
+  }
+}</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Job Detail Modal -->
+  <div class="modal-backdrop" id="job-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="modal-job-title" style="font-size: 18px; font-weight: 600; color: var(--color-text);">Job Title</h2>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+            <span id="modal-job-company" style="font-size: 13px; color: var(--color-text-muted);">Company</span>
+            <span>·</span>
+            <span id="modal-job-location" style="font-size: 13px; color: var(--color-text-muted);">Location</span>
+            <span>·</span>
+            <span class="badge" id="modal-job-platform">platform</span>
+          </div>
+        </div>
+        <button class="button button-secondary button-sm" id="btn-close-modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 12px; color: var(--color-text-muted);">Fit Evaluation:</span>
+            <span class="score-pill" id="modal-job-score">0%</span>
+          </div>
+          <button class="button button-secondary button-sm" id="btn-re-evaluate">Re-Evaluate Fit</button>
+        </div>
+
+        <div class="input-label">Fit Criteria & Alignment</div>
+        <ul class="criteria-list" id="modal-job-reasons">
+          <!-- Dynamic items -->
+        </ul>
+
+        <div class="input-label" style="margin-top: var(--space-4);">Job Description Snippet</div>
+        <div class="code-box" id="modal-job-desc" style="max-height: 220px; overflow-y: auto;">
+          Loading...
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <a href="#" target="_blank" rel="noopener noreferrer" class="button button-secondary button-sm" id="modal-job-link">
+          Open Listing ↗
+        </a>
+        <div style="display: flex; gap: var(--space-2);">
+          <button class="button button-secondary" id="btn-apply-review">Pre-fill (Review Mode)</button>
+          <button class="button button-primary" id="btn-apply-submit">Apply (Auto-Submit)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Platform Modal -->
+  <div class="modal-backdrop" id="add-platform-modal">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-header">
+        <h2 style="font-size: 16px; font-weight: 600;">Register Custom Job Platform</h2>
+        <button class="button button-secondary button-sm" id="btn-close-add-platform">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="input-label" for="new-platform-name">Platform Slug Identifier</label>
+          <input type="text" class="input" id="new-platform-name" placeholder="e.g. simplyhired, otta, remotive">
+        </div>
+        <div class="form-group">
+          <label class="input-label" for="new-platform-display">Display Name</label>
+          <input type="text" class="input" id="new-platform-display" placeholder="e.g. SimplyHired Remote">
+        </div>
+        <div class="form-group">
+          <label class="input-label" for="new-platform-type">Provider Ingestion Type</label>
+          <select class="select" id="new-platform-type">
+            <option value="rss">RSS Feed (Clean XML syndication)</option>
+            <option value="json_api">JSON API Endpoint</option>
+            <option value="html_scraper">HTML CSS Scraper</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="input-label" for="new-platform-url">URL / Endpoint Template</label>
+          <input type="text" class="input" id="new-platform-url" placeholder="https://example.com/jobs.rss or ?q={role}">
+          <p class="input-hint">Use <code>{role}</code> and <code>{location}</code> as optional dynamic parameters.</p>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end; gap: var(--space-2);">
+        <button class="button button-secondary" id="btn-cancel-add-platform">Cancel</button>
+        <button class="button button-primary" id="btn-submit-add-platform">Add Platform</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
