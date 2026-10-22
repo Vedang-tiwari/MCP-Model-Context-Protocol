@@ -1,0 +1,42 @@
+[
+  {
+    "name": "remoteok",
+    "display_name": "RemoteOK",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://remoteok.com/remote-jobs.rss",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 25
+  },
+  {
+    "name": "weworkremotely",
+    "display_name": "WeWorkRemotely",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 25
+  },
+  {
+    "name": "jobicy",
+    "display_name": "Jobicy API",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://jobicy.com/api/v2/remote-jobs?count=25&tag={role}",
+    "headers": {},
+    "field_mappings": {
+      "items": "jobs",
+      "title": "jobTitle",
+      "company": "companyName",
+      "url": "url",
+      "location": "jobGeo",
+      "description": "jobExcerpt"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 25
+  }
+]
