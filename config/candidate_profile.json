@@ -1,0 +1,67 @@
+{
+  "personal_info": {
+    "full_name": "Job Seeker",
+    "email": "user@example.com",
+    "phone": "+91 9876543210",
+    "country_code": "+91",
+    "current_city": "Bengaluru",
+    "country": "India",
+    "postal_code": "560001",
+    "linkedin_url": "https://linkedin.com/in/your-profile",
+    "github_url": "https://github.com/your-username",
+    "portfolio_url": "https://yourportfolio.dev",
+    "twitter_url": "https://x.com/yourhandle"
+  },
+  "summary": "Passionate Software Engineer specializing in Python, Full Stack development, and Autonomous AI Agents.",
+  "skills": {
+    "languages": ["Python", "JavaScript", "TypeScript", "SQL"],
+    "frameworks": ["FastAPI", "React", "Node.js", "Django", "Playwright"],
+    "databases": ["PostgreSQL", "SQLite", "MongoDB"],
+    "cloud_and_devops": ["Docker", "AWS", "Git", "GitHub Actions"],
+    "ai_and_agents": ["Model Context Protocol (MCP)", "LangChain", "OpenAI", "Anthropic"]
+  },
+  "work_experience": [
+    {
+      "company": "Tech Company",
+      "role": "Software Engineer",
+      "start_date": "2023-01",
+      "end_date": "Present",
+      "location": "Bengaluru (Remote)",
+      "description": "Engineered scalable web applications and integrated LLM workflows."
+    }
+  ],
+  "education": [
+    {
+      "institution": "University / Institute of Technology",
+      "degree": "Bachelor of Technology",
+      "field_of_study": "Computer Science & Engineering",
+      "graduation_year": 2023,
+      "gpa": "8.5/10"
+    }
+  ],
+  "standard_answers": {
+    "years_of_experience": 2,
+    "notice_period_days": 15,
+    "willing_to_relocate": true,
+    "open_to_remote": true,
+    "work_authorization": "Citizen / Authorized to work",
+    "requires_sponsorship": false,
+    "expected_salary_usd": 80000,
+    "expected_salary_inr": 1800000,
+    "currency_preference": "INR",
+    "eeo": {
+      "gender": "Decline to self-identify",
+      "race_ethnicity": "Decline to self-identify",
+      "veteran_status": "I am not a protected veteran",
+      "disability_status": "No, I do not have a disability"
+    }
+  },
+  "qa_knowledge_base": [
+    {
+      "topic": "motivation",
+      "question_keywords": ["why do you want to work here", "why this company"],
+      "answer": "I admire your product vision and team culture. My expertise in building scalable applications and AI automation would allow me to make an immediate impact."
+    }
+  ],
+  "resume_file_path": "config/resume.pdf"
+}
