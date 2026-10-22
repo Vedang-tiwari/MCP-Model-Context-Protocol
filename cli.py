@@ -310,5 +310,21 @@ def remove_platform_cmd(name):
         console.print(f"[red]Error: Cannot remove platform '{name}' (may be built-in or not found).[/red]")
 
 
+@cli.command()
+@click.option("--host", default="127.0.0.1", help="Host address to bind to (default 127.0.0.1)")
+@click.option("--port", "-p", default=8000, type=int, help="Port to listen on (default 8000)")
+def web(host, port):
+    """Launch the local web dashboard interface."""
+    from web.server import run_web_server
+    console.print(Panel.fit(
+        f"[bold cyan]🌐 Starting MCP Local Host Web Dashboard[/bold cyan]\n"
+        f"URL: [bold underline green]http://{host}:{port}[/bold underline green]\n"
+        f"API: [dim]http://{host}:{port}/api/stats[/dim]\n"
+        f"Press [bold red]Ctrl+C[/bold red] to terminate the server.",
+        border_style="green"
+    ))
+    run_web_server(host=host, port=port)
+
+
 if __name__ == "__main__":
     cli()
