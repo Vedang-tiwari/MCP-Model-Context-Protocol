@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Secrets and environment variables
+.env
+!.env.example
+
+# Local databases and browser profile sessions
+data/*.db
+data/test_jobs.db
+data/test_custom_platforms.json
+data/browser_profile/
+data/screenshots/
+*.sqlite3
+
+# Playwright & test reports
+test-results/
+playwright-report/
+
+# Local runner scripts
+powershell.cmd
+
+# IDE and OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
