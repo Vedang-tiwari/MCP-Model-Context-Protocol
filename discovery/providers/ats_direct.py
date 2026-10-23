@@ -1,10 +1,10 @@
-"""Direct ATS Provider for Greenhouse, Lever, and Ashby public job boards.
-These APIs provide zero-latency, bot-proof, public JSON feeds of freshly posted jobs.
+"""Direct ATS Provider for Greenhouse and Lever public job feeds.
+Provides zero-latency, bot-proof, public JSON feeds of freshly posted jobs across top tech companies.
 """
 import logging
 import httpx
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
 
@@ -15,17 +15,40 @@ class ATSDirectProvider(BaseJobProvider):
     def __init__(self, companies: Optional[List[str]] = None):
         super().__init__(name="ats_direct")
         self.companies = companies or [
+            "datadog",
             "stripe",
             "figma",
             "openai",
             "anthropic",
             "vercel",
             "supabase",
-            "datadog",
-            "github",
             "cloudflare",
             "postman",
-            "razorpay"
+            "github",
+            "discord",
+            "canva",
+            "retool",
+            "linear",
+            "zapier",
+            "gitlab",
+            "docker",
+            "reddit",
+            "pinterest",
+            "twitch",
+            "instacart",
+            "snowflake",
+            "databricks",
+            "brex",
+            "ramp",
+            "gusto",
+            "affirm",
+            "sentry",
+            "hashicorp",
+            "doordash",
+            "robinhood",
+            "coinbase",
+            "mongodb",
+            "elastic"
         ]
 
     async def fetch_recent_jobs(
@@ -37,21 +60,21 @@ class ATSDirectProvider(BaseJobProvider):
         results: List[JobListing] = []
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             for company in self.companies:
-                # 1. Try Greenhouse
+                # 1. Greenhouse
                 try:
                     gh_jobs = await self._fetch_greenhouse(client, company, roles)
                     results.extend(gh_jobs)
                 except Exception as e:
-                    logger.debug(f"Greenhouse check for {company} failed: {e}")
+                    logger.debug(f"Greenhouse check for {company} encountered: {e}")
 
-                # 2. Try Lever
+                # 2. Lever
                 try:
                     lever_jobs = await self._fetch_lever(client, company, roles)
                     results.extend(lever_jobs)
                 except Exception as e:
-                    logger.debug(f"Lever check for {company} failed: {e}")
+                    logger.debug(f"Lever check for {company} encountered: {e}")
 
-        logger.info(f"[{self.name}] Discovered {len(results)} direct ATS jobs matching roles")
+        logger.info(f"[{self.name}] Discovered {len(results)} direct ATS jobs across tech leaders")
         return results
 
     async def _fetch_greenhouse(
@@ -88,11 +111,15 @@ class ATSDirectProvider(BaseJobProvider):
                 apply_url=job_url,
                 is_easy_apply=False,
                 description=f"Direct ATS job listing for {title} at {company.capitalize()}",
-                posted_at=datetime.utcnow(),
-                discovered_at=datetime.utcnow(),
+                posted_at=datetime.now(timezone.utc),
+                discovered_at=datetime.now(timezone.utc),
                 status=ApplicationStatus.DISCOVERED,
                 metadata={"ats_type": "greenhouse", "board_token": company}
             ))
+
+            if len(matched) >= 30:  # Cap per company to keep balance
+                break
+
         return matched
 
     async def _fetch_lever(
@@ -107,6 +134,9 @@ class ATSDirectProvider(BaseJobProvider):
             return []
 
         jobs_raw = res.json()
+        if not isinstance(jobs_raw, list):
+            return []
+
         matched: List[JobListing] = []
 
         for item in jobs_raw:
@@ -128,19 +158,42 @@ class ATSDirectProvider(BaseJobProvider):
                 url=job_url,
                 apply_url=job_url,
                 is_easy_apply=False,
-                description=item.get("descriptionPlain", "")[:1000],
-                posted_at=datetime.utcnow(),
-                discovered_at=datetime.utcnow(),
+                description=item.get("descriptionPlain", "")[:800],
+                posted_at=datetime.now(timezone.utc),
+                discovered_at=datetime.now(timezone.utc),
                 status=ApplicationStatus.DISCOVERED,
                 metadata={"ats_type": "lever", "board_token": company}
             ))
+
+            if len(matched) >= 30:
+                break
+
         return matched
 
     def _matches_roles(self, title: str, roles: List[str]) -> bool:
-        title_lower = title.lower()
+        t = title.lower().replace("-", " ")
+
         for role in roles:
-            # Check if keywords match
-            keywords = role.lower().split()
-            if all(k in title_lower for k in keywords):
+            # Token match with developer/engineer equivalence
+            tokens = [tok for tok in role.lower().split() if len(tok) > 2]
+            if all(tok in t for tok in tokens):
                 return True
-        return False
+
+            equiv_tokens = set(tokens)
+            if "developer" in equiv_tokens:
+                equiv_tokens.discard("developer")
+                equiv_tokens.add("engineer")
+            elif "engineer" in equiv_tokens:
+                equiv_tokens.discard("engineer")
+                equiv_tokens.add("developer")
+
+            if all(tok in t for tok in equiv_tokens):
+                return True
+
+        # General tech stems matching
+        tech_stems = [
+            "software engineer", "frontend", "backend", "full stack",
+            "fullstack", "devops", "platform engineer", "data engineer",
+            "machine learning", "ai engineer", "systems engineer"
+        ]
+        return any(stem in t for stem in tech_stems)
