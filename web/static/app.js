@@ -8,6 +8,7 @@ const state = {
   jobs: [],
   activeJob: null,
   platforms: [],
+  resumes: [],
   profile: null,
   preferences: null,
   stats: null,
@@ -69,6 +70,17 @@ const DOM = {
   thresholdVal: document.getElementById('threshold-val'),
   prefsAutoapply: document.getElementById('prefs-autoapply'),
   prefsRemoteonly: document.getElementById('prefs-remoteonly'),
+  
+  // Resume Matrix
+  resumeFileInput: document.getElementById('resume-file-input'),
+  fileChosenLabel: document.getElementById('file-chosen-label'),
+  fileDropBtnLabel: document.getElementById('file-drop-btn-label'),
+  resumeRoleInput: document.getElementById('resume-role-input'),
+  resumeIsDefault: document.getElementById('resume-is-default'),
+  btnUploadResume: document.getElementById('btn-upload-resume'),
+  resumeCountBadge: document.getElementById('resume-count-badge'),
+  resumesTbody: document.getElementById('resumes-tbody'),
+  roleChips: document.querySelectorAll('.chip-btn'),
   
   // Platforms
   platformsGrid: document.getElementById('platforms-grid'),
@@ -518,6 +530,140 @@ async function saveProfile() {
 }
 
 // -----------------------------------------------------------------------------
+// Resume Matrix & Role Mappings
+// -----------------------------------------------------------------------------
+async function fetchResumes() {
+  try {
+    const res = await fetch('/api/resumes');
+    if (!res.ok) return;
+    const data = await res.json();
+    state.resumes = data.resumes || [];
+    renderResumes(state.resumes);
+  } catch (err) {
+    console.error('Failed to load resumes:', err);
+  }
+}
+
+function renderResumes(resumes) {
+  if (DOM.resumeCountBadge) {
+    DOM.resumeCountBadge.textContent = `${resumes.length} Resume${resumes.length === 1 ? '' : 's'} Active`;
+  }
+  if (!DOM.resumesTbody) return;
+
+  if (resumes.length === 0) {
+    DOM.resumesTbody.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align: center; color: var(--color-text-subtle); padding: 24px;">
+          No role-tailored resumes mapped yet. Upload a resume above to route applications automatically.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  DOM.resumesTbody.innerHTML = resumes.map(r => {
+    const defaultBadge = r.is_default
+      ? `<span class="badge badge-success" title="Used when no specific role matches">★ Default</span>`
+      : `<span style="color: var(--color-text-subtle); font-size: 12px;">—</span>`;
+    const readyBadge = r.exists
+      ? `<span class="badge badge-success" style="font-size: 10px;">READY</span>`
+      : `<span class="badge" style="color: var(--color-danger); border-color: rgba(248,113,113,0.3); font-size: 10px;">MISSING</span>`;
+
+    return `
+      <tr>
+        <td>
+          <span class="badge" style="color: var(--color-text); border-color: var(--color-border-strong); font-weight: 500;">
+            ${escapeHtml(r.role_pattern)}
+          </span>
+        </td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="tabular-nums" style="font-size: 13px; color: var(--color-text);">${escapeHtml(r.file_name)}</span>
+            ${readyBadge}
+          </div>
+        </td>
+        <td class="tabular-nums" style="font-size: 12px; color: var(--color-text-muted);">
+          ${r.file_size_kb ? r.file_size_kb.toFixed(1) + ' KB' : '—'}
+        </td>
+        <td>${defaultBadge}</td>
+        <td style="text-align: right;">
+          <div style="display: inline-flex; gap: 6px;">
+            <a href="/api/resumes/${r.id}/download" target="_blank" class="button button-secondary" style="min-height: 28px; padding: 0 10px; font-size: 12px;" title="Preview / Download file">
+              Preview
+            </a>
+            <button type="button" class="button button-secondary btn-delete-resume" data-id="${r.id}" style="min-height: 28px; padding: 0 10px; font-size: 12px; color: var(--color-danger);" title="Delete mapping">
+              Delete
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function handleResumeUpload() {
+  const file = DOM.resumeFileInput && DOM.resumeFileInput.files[0];
+  const role = DOM.resumeRoleInput && DOM.resumeRoleInput.value.trim();
+  const isDefault = DOM.resumeIsDefault && DOM.resumeIsDefault.checked;
+
+  if (!file) {
+    showToast('Please select a PDF or DOCX resume file to upload.', 'error');
+    return;
+  }
+  if (!role) {
+    showToast('Please specify the designated role (e.g. AI Engineer, SWE, FDE).', 'error');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('role', role);
+  formData.append('is_default', isDefault ? 'true' : 'false');
+
+  DOM.btnUploadResume.disabled = true;
+  DOM.btnUploadResume.textContent = 'Uploading...';
+
+  try {
+    const res = await fetch('/api/resumes/upload', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast(`Resume mapped to '${role}' successfully!`, 'success');
+      DOM.resumeFileInput.value = '';
+      DOM.resumeRoleInput.value = '';
+      if (DOM.fileChosenLabel) DOM.fileChosenLabel.textContent = 'Choose PDF / DOCX';
+      if (DOM.fileDropBtnLabel) DOM.fileDropBtnLabel.classList.remove('has-file');
+      if (DOM.resumeIsDefault) DOM.resumeIsDefault.checked = false;
+      await fetchResumes();
+    } else {
+      showToast(data.error || 'Failed to upload resume.', 'error');
+    }
+  } catch (err) {
+    showToast('Error uploading resume: ' + err.message, 'error');
+  } finally {
+    DOM.btnUploadResume.disabled = false;
+    DOM.btnUploadResume.textContent = 'Upload & Map';
+  }
+}
+
+async function handleResumeDelete(resumeId) {
+  if (!confirm('Are you sure you want to remove this resume mapping?')) return;
+  try {
+    const res = await fetch(`/api/resumes/${resumeId}`, { method: 'DELETE' });
+    if (res.ok) {
+      showToast('Resume mapping removed.', 'success');
+      await fetchResumes();
+    } else {
+      showToast('Failed to delete resume mapping.', 'error');
+    }
+  } catch (err) {
+    showToast('Error deleting resume: ' + err.message, 'error');
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Platforms Registry
 // -----------------------------------------------------------------------------
 async function fetchPlatforms() {
@@ -727,6 +873,41 @@ function initEventListeners() {
   DOM.btnQuickScout.addEventListener('click', triggerLiveScout);
   DOM.btnRunScoutFull.addEventListener('click', triggerLiveScout);
 
+  // Resume Matrix Events
+  if (DOM.resumeFileInput) {
+    DOM.resumeFileInput.addEventListener('change', () => {
+      const file = DOM.resumeFileInput.files[0];
+      if (file) {
+        if (DOM.fileChosenLabel) DOM.fileChosenLabel.textContent = file.name;
+        if (DOM.fileDropBtnLabel) DOM.fileDropBtnLabel.classList.add('has-file');
+      } else {
+        if (DOM.fileChosenLabel) DOM.fileChosenLabel.textContent = 'Choose PDF / DOCX';
+        if (DOM.fileDropBtnLabel) DOM.fileDropBtnLabel.classList.remove('has-file');
+      }
+    });
+  }
+
+  if (DOM.roleChips) {
+    DOM.roleChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        if (DOM.resumeRoleInput) DOM.resumeRoleInput.value = chip.dataset.chip;
+      });
+    });
+  }
+
+  if (DOM.btnUploadResume) {
+    DOM.btnUploadResume.addEventListener('click', handleResumeUpload);
+  }
+
+  if (DOM.resumesTbody) {
+    DOM.resumesTbody.addEventListener('click', (e) => {
+      const delBtn = e.target.closest('.btn-delete-resume');
+      if (delBtn && delBtn.dataset.id) {
+        handleResumeDelete(delBtn.dataset.id);
+      }
+    });
+  }
+
   // Profile Save
   DOM.btnSaveProfile.addEventListener('click', saveProfile);
   DOM.prefsThreshold.addEventListener('input', () => {
@@ -790,6 +971,7 @@ async function initApp() {
     fetchStats(),
     fetchJobs(),
     fetchProfile(),
+    fetchResumes(),
     fetchPlatforms(),
     fetchSystemInfo()
   ]);
