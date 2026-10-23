@@ -1,16 +1,5 @@
 [
   {
-    "name": "remoteok",
-    "display_name": "RemoteOK",
-    "platform_type": "rss",
-    "enabled": true,
-    "url_template": "https://remoteok.com/remote-jobs.rss",
-    "headers": {},
-    "field_mappings": {},
-    "selectors": {},
-    "max_items_per_cycle": 25
-  },
-  {
     "name": "weworkremotely",
     "display_name": "WeWorkRemotely",
     "platform_type": "rss",
