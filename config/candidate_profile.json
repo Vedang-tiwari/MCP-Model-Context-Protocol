@@ -14,11 +14,36 @@
   },
   "summary": "Passionate Software Engineer specializing in Python, Full Stack development, and Autonomous AI Agents.",
   "skills": {
-    "languages": ["Python", "JavaScript", "TypeScript", "SQL"],
-    "frameworks": ["FastAPI", "React", "Node.js", "Django", "Playwright"],
-    "databases": ["PostgreSQL", "SQLite", "MongoDB"],
-    "cloud_and_devops": ["Docker", "AWS", "Git", "GitHub Actions"],
-    "ai_and_agents": ["Model Context Protocol (MCP)", "LangChain", "OpenAI", "Anthropic"]
+    "languages": [
+      "Python",
+      "JavaScript",
+      "TypeScript",
+      "SQL"
+    ],
+    "frameworks": [
+      "FastAPI",
+      "React",
+      "Node.js",
+      "Django",
+      "Playwright"
+    ],
+    "databases": [
+      "PostgreSQL",
+      "SQLite",
+      "MongoDB"
+    ],
+    "cloud_and_devops": [
+      "Docker",
+      "AWS",
+      "Git",
+      "GitHub Actions"
+    ],
+    "ai_and_agents": [
+      "Model Context Protocol (MCP)",
+      "LangChain",
+      "OpenAI",
+      "Anthropic"
+    ]
   },
   "work_experience": [
     {
@@ -59,9 +84,41 @@
   "qa_knowledge_base": [
     {
       "topic": "motivation",
-      "question_keywords": ["why do you want to work here", "why this company"],
+      "question_keywords": [
+        "why do you want to work here",
+        "why this company"
+      ],
       "answer": "I admire your product vision and team culture. My expertise in building scalable applications and AI automation would allow me to make an immediate impact."
     }
   ],
-  "resume_file_path": "config/resume.pdf"
+  "resume_file_path": "data/resumes/resume_swe.pdf",
+  "role_resumes": [
+    {
+      "id": "res_ai",
+      "role_pattern": "AI Engineer",
+      "file_path": "data/resumes/resume_ai_engineer.pdf",
+      "file_name": "resume_ai_engineer.pdf",
+      "file_size_kb": 1.2,
+      "uploaded_at": "2026-10-23T12:00:00Z",
+      "is_default": false
+    },
+    {
+      "id": "res_swe",
+      "role_pattern": "SWE",
+      "file_path": "data/resumes/resume_swe.pdf",
+      "file_name": "resume_swe.pdf",
+      "file_size_kb": 1.2,
+      "uploaded_at": "2026-10-23T12:00:00Z",
+      "is_default": true
+    },
+    {
+      "id": "res_fde",
+      "role_pattern": "FDE",
+      "file_path": "data/resumes/resume_fde.pdf",
+      "file_name": "resume_fde.pdf",
+      "file_size_kb": 1.2,
+      "uploaded_at": "2026-10-23T12:00:00Z",
+      "is_default": false
+    }
+  ]
 }
