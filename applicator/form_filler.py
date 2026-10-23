@@ -134,13 +134,14 @@ class ApplicationAgent:
         await self._fill_if_present(page, "#email", p.personal_info.email)
         await self._fill_if_present(page, "#phone", p.personal_info.phone)
 
-        # Upload Resume if available
-        resume_path = Path(p.resume_file_path or "config/resume.pdf")
-        if resume_path.exists():
+        # Dynamically select and upload tailored resume for this job role
+        resume_path = self.profile_mgr.get_resume_for_job(job)
+        if resume_path and resume_path.exists():
             upload_input = await page.query_selector("input[type='file']")
             if upload_input:
                 await upload_input.set_input_files(str(resume_path.resolve()))
-                logger.info(f"Uploaded resume: {resume_path}")
+                answers["_resume_attached"] = resume_path.name
+                logger.info(f"Attached tailored resume '{resume_path.name}' for role '{job.title}'")
 
         # Social links
         if p.personal_info.linkedin_url:
@@ -167,7 +168,7 @@ class ApplicationAgent:
             if submit_btn:
                 await submit_btn.click()
                 await asyncio.sleep(5)
-                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.utcnow(), answers_submitted=answers)
+                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.now(timezone.utc), answers_submitted=answers)
 
         return ApplicationRecord(job_id=job.id, status=ApplicationStatus.MANUAL_REVIEW, notes="Form filled; pending final user submission", answers_submitted=answers)
 
@@ -197,18 +198,20 @@ class ApplicationAgent:
             await self._fill_if_present(page, "input[name='urls[Portfolio]']", p.personal_info.portfolio_url)
 
         # Resume upload
-        resume_path = Path(p.resume_file_path or "config/resume.pdf")
-        if resume_path.exists():
+        resume_path = self.profile_mgr.get_resume_for_job(job)
+        if resume_path and resume_path.exists():
             file_input = await page.query_selector("input[type='file']#resume-upload-input, input[type='file']")
             if file_input:
                 await file_input.set_input_files(str(resume_path.resolve()))
+                answers["_resume_attached"] = resume_path.name
+                logger.info(f"Attached tailored resume '{resume_path.name}' for role '{job.title}'")
 
         if auto_submit:
             submit_btn = await page.query_selector("#btn-submit, button[type='submit']")
             if submit_btn:
                 await submit_btn.click()
                 await asyncio.sleep(5)
-                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.utcnow(), answers_submitted=answers)
+                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.now(timezone.utc), answers_submitted=answers)
 
         return ApplicationRecord(job_id=job.id, status=ApplicationStatus.MANUAL_REVIEW, notes="Lever form filled; pending final submission", answers_submitted=answers)
 
@@ -224,17 +227,29 @@ class ApplicationAgent:
         answers = {}
         # Multi-step loop (max 6 steps to avoid infinite loops)
         for step in range(6):
+            # Check if resume upload requested on current modal step
+            file_input = await page.query_selector("input[type='file']")
+            if file_input:
+                resume_path = self.profile_mgr.get_resume_for_job(job)
+                if resume_path and resume_path.exists():
+                    try:
+                        await file_input.set_input_files(str(resume_path.resolve()))
+                        answers["_resume_attached"] = resume_path.name
+                        logger.info(f"Attached tailored resume '{resume_path.name}' to LinkedIn Easy Apply")
+                    except Exception as e:
+                        logger.debug(f"LinkedIn resume attachment skipped: {e}")
+
             # Check if submitted
             success_heading = await page.query_selector(".artdeco-inline-feedback--success, .jpac-modal-header")
             if success_heading:
-                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.utcnow(), answers_submitted=answers)
+                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.now(timezone.utc), answers_submitted=answers)
 
             # Check next or review or submit
             submit_btn = await page.query_selector("button[aria-label='Submit application']")
             if submit_btn and auto_submit:
                 await submit_btn.click()
                 await asyncio.sleep(3)
-                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.utcnow(), answers_submitted=answers)
+                return ApplicationRecord(job_id=job.id, status=ApplicationStatus.APPLIED, applied_at=datetime.now(timezone.utc), answers_submitted=answers)
             elif submit_btn and not auto_submit:
                 return ApplicationRecord(job_id=job.id, status=ApplicationStatus.MANUAL_REVIEW, notes="Ready for final review submission", answers_submitted=answers)
 
@@ -253,6 +268,16 @@ class ApplicationAgent:
         await self._fill_if_present(page, "input[name*='name'], input[id*='name']", p.personal_info.full_name)
         await self._fill_if_present(page, "input[type='email'], input[name*='email']", p.personal_info.email)
         await self._fill_if_present(page, "input[type='tel'], input[name*='phone']", p.personal_info.phone)
+
+        # Attach tailored resume
+        resume_path = self.profile_mgr.get_resume_for_job(job)
+        if resume_path and resume_path.exists():
+            file_input = await page.query_selector("input[type='file']")
+            if file_input:
+                try:
+                    await file_input.set_input_files(str(resume_path.resolve()))
+                except Exception:
+                    pass
 
         return ApplicationRecord(job_id=job.id, status=ApplicationStatus.MANUAL_REVIEW, notes="Generic form pre-filled; manual review advised")
 
