@@ -109,6 +109,16 @@ class QAKnowledgeItem(BaseModel):
     answer: str
 
 
+class RoleResumeMapping(BaseModel):
+    id: str = Field(description="Unique identifier for resume mapping")
+    role_pattern: str = Field(description="Designation or role keyword e.g. 'AI Engineer', 'SWE', 'FDE', 'Backend Developer', or '*'")
+    file_path: str = Field(description="Path to stored resume on disk")
+    file_name: str = Field(description="Original uploaded file name")
+    file_size_kb: Optional[float] = 0.0
+    uploaded_at: Optional[str] = None
+    is_default: bool = False
+
+
 class CandidateProfile(BaseModel):
     personal_info: PersonalInfo
     summary: str
@@ -118,6 +128,7 @@ class CandidateProfile(BaseModel):
     standard_answers: StandardAnswers
     qa_knowledge_base: List[QAKnowledgeItem] = Field(default_factory=list)
     resume_file_path: Optional[str] = "config/resume.pdf"
+    role_resumes: List[RoleResumeMapping] = Field(default_factory=list)
 
 
 class SearchPreferences(BaseModel):
