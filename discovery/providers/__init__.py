@@ -5,6 +5,9 @@ from .ats_direct import ATSDirectProvider
 from .wellfound import WellfoundProvider
 from .naukri import NaukriProvider
 from .internshala import InternshalaProvider
+from .remoteok import RemoteOKProvider
+from .remotive import RemotiveProvider
+from .arbeitnow import ArbeitnowProvider
 
 __all__ = [
     "LinkedInProvider",
@@ -13,4 +16,7 @@ __all__ = [
     "WellfoundProvider",
     "NaukriProvider",
     "InternshalaProvider",
+    "RemoteOKProvider",
+    "RemotiveProvider",
+    "ArbeitnowProvider",
 ]
