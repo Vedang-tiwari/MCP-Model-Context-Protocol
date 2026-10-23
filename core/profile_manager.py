@@ -4,7 +4,10 @@ import logging
 from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 
-from .models import CandidateProfile, SearchPreferences, JobListing
+import uuid
+from datetime import datetime, timezone
+
+from .models import CandidateProfile, SearchPreferences, JobListing, RoleResumeMapping
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -41,6 +44,173 @@ class ProfileManager:
     def reload(self):
         self.profile = self._load_profile()
         self.preferences = self._load_preferences()
+
+    def save_profile(self):
+        """Persists the current CandidateProfile to candidate_profile.json."""
+        with open(self.profile_path, "w", encoding="utf-8") as f:
+            json.dump(self.profile.model_dump(), f, indent=2)
+        logger.info(f"Persisted candidate profile to {self.profile_path}")
+
+    def add_role_resume(
+        self,
+        file_path: str,
+        role_pattern: str,
+        original_filename: str,
+        is_default: bool = False
+    ) -> RoleResumeMapping:
+        """Adds or updates a resume mapped to a specific job role/designation."""
+        path_obj = Path(file_path)
+        size_kb = round(path_obj.stat().st_size / 1024, 1) if path_obj.exists() else 0.0
+
+        if is_default:
+            for item in self.profile.role_resumes:
+                item.is_default = False
+
+        # If role_pattern already exists, update it
+        existing = next((r for r in self.profile.role_resumes if r.role_pattern.lower() == role_pattern.lower()), None)
+        if existing:
+            existing.file_path = str(path_obj)
+            existing.file_name = original_filename
+            existing.file_size_kb = size_kb
+            existing.uploaded_at = datetime.now(timezone.utc).isoformat()
+            existing.is_default = is_default or existing.is_default
+            mapping = existing
+        else:
+            mapping = RoleResumeMapping(
+                id=uuid.uuid4().hex[:8],
+                role_pattern=role_pattern.strip(),
+                file_path=str(path_obj),
+                file_name=original_filename,
+                file_size_kb=size_kb,
+                uploaded_at=datetime.now(timezone.utc).isoformat(),
+                is_default=is_default
+            )
+            self.profile.role_resumes.append(mapping)
+
+        # Also update fallback resume_file_path if default or empty
+        if is_default or not self.profile.resume_file_path:
+            self.profile.resume_file_path = str(path_obj)
+
+        self.save_profile()
+        logger.info(f"Registered resume mapping: '{role_pattern}' -> {original_filename} ({size_kb} KB)")
+        return mapping
+
+    def remove_role_resume(self, resume_id_or_role: str) -> bool:
+        """Removes a resume mapping by its ID or role pattern."""
+        initial_len = len(self.profile.role_resumes)
+        target = resume_id_or_role.strip().lower()
+
+        self.profile.role_resumes = [
+            r for r in self.profile.role_resumes
+            if r.id.lower() != target and r.role_pattern.lower() != target
+        ]
+
+        if len(self.profile.role_resumes) < initial_len:
+            self.save_profile()
+            logger.info(f"Removed resume mapping for '{resume_id_or_role}'")
+            return True
+        return False
+
+    def get_resume_by_id(self, resume_id: str) -> Optional[RoleResumeMapping]:
+        """Finds a resume mapping by ID."""
+        for r in self.profile.role_resumes:
+            if r.id.lower() == resume_id.strip().lower():
+                return r
+        return None
+
+    def get_resume_for_job(self, job: JobListing) -> Optional[Path]:
+        """
+        Dynamically selects the best-matching resume mapped to the job role.
+        Evaluates title keywords, domain acronyms (SWE, FDE, AI, etc.), and fallbacks to default.
+        """
+        if not self.profile.role_resumes:
+            # Fallback to single resume_file_path
+            if self.profile.resume_file_path:
+                fb = Path(self.profile.resume_file_path)
+                if fb.exists():
+                    return fb
+            return None
+
+        title_lower = job.title.lower().replace("-", " ")
+        desc_lower = (job.description or "").lower()
+
+        # Acronym & synonym aliases
+        synonyms = {
+            "ai": ["ai", "artificial intelligence", "machine learning", "ml", "deep learning", "llm", "nlp"],
+            "swe": ["software engineer", "swe", "sde", "software development engineer", "programmer"],
+            "fde": ["forward deployed", "forward deployment", "fde", "frontend", "front end", "ui engineer"],
+            "frontend": ["frontend", "front end", "ui", "react", "next.js", "vue", "angular", "client"],
+            "backend": ["backend", "back end", "server", "python", "golang", "java", "api", "distributed"],
+            "full stack": ["full stack", "fullstack", "end to end"],
+            "data": ["data engineer", "etl", "analytics", "data platform", "sql", "pipeline"]
+        }
+
+        # 1. Exact / Alias Match across configured role patterns
+        best_match: Optional[RoleResumeMapping] = None
+        highest_score = 0
+        import re
+
+        for mapping in self.profile.role_resumes:
+            pattern = mapping.role_pattern.lower().strip()
+            score = 0
+
+            # Direct whole pattern match
+            if pattern == "*":
+                score = 1
+            elif pattern in title_lower:
+                score = 100 + len(pattern)
+            else:
+                # Token matching with word boundaries
+                tokens = [tok for tok in re.split(r'[^a-zA-Z0-9]', pattern) if tok]
+                matched_tokens = 0
+                for tok in tokens:
+                    if re.search(r'\b' + re.escape(tok) + r'\b', title_lower):
+                        matched_tokens += 1
+                    else:
+                        tok_syns = synonyms.get(tok, [])
+                        if any(re.search(r'\b' + re.escape(s) + r'\b', title_lower) for s in tok_syns):
+                            matched_tokens += 1
+
+                if tokens:
+                    if matched_tokens == len(tokens):
+                        score = 80 + (matched_tokens * 10)
+                    elif matched_tokens > 0:
+                        score = matched_tokens * 15
+
+            if score > highest_score:
+                highest_score = score
+                best_match = mapping
+
+        # 2. Check if best match file exists
+        if best_match and highest_score > 10:
+            candidate_path = Path(best_match.file_path)
+            if candidate_path.exists():
+                logger.info(f"Selected tailored resume for '{job.title}': {candidate_path.name} (Matched: '{best_match.role_pattern}', Score={highest_score})")
+                return candidate_path
+
+        # 3. Fallback: Default resume
+        default_mapping = next((r for r in self.profile.role_resumes if r.is_default), None)
+        if default_mapping:
+            candidate_path = Path(default_mapping.file_path)
+            if candidate_path.exists():
+                logger.info(f"Using default fallback resume for '{job.title}': {candidate_path.name}")
+                return candidate_path
+
+        # 4. Fallback: First existing resume in role_resumes
+        for r in self.profile.role_resumes:
+            candidate_path = Path(r.file_path)
+            if candidate_path.exists():
+                logger.info(f"Using first available resume for '{job.title}': {candidate_path.name}")
+                return candidate_path
+
+        # 5. Fallback: Legacy resume_file_path
+        if self.profile.resume_file_path:
+            legacy_path = Path(self.profile.resume_file_path)
+            if legacy_path.exists():
+                return legacy_path
+
+        logger.warning(f"No valid resume file found for '{job.title}'")
+        return None
 
     def evaluate_fit(self, job: JobListing) -> Tuple[int, List[str]]:
         """
