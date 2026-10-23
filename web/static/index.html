@@ -239,6 +239,71 @@
         <button class="button button-primary" id="btn-save-profile">Save Changes</button>
       </div>
 
+      <!-- Dynamic Role-Tailored Resume Matrix -->
+      <div class="panel resume-matrix-panel" style="margin-bottom: var(--space-5);">
+        <div class="panel-header" style="justify-content: space-between; align-items: flex-start;">
+          <div>
+            <span class="panel-title">Role-Tailored Resume Matrix</span>
+            <p class="input-hint" style="margin-top: 4px;">Upload multiple resumes mapped to specific job roles (e.g. AI Engineer, SWE, FDE). MCP automatically attaches the exact matching resume during autonomous applications.</p>
+          </div>
+          <span class="badge badge-success" id="resume-count-badge">0 Resumes Active</span>
+        </div>
+
+        <!-- Upload Bar -->
+        <div class="resume-upload-bar">
+          <div class="file-picker-group">
+            <label class="file-drop-btn" for="resume-file-input" id="file-drop-btn-label">
+              <span id="file-chosen-label">Choose PDF / DOCX</span>
+              <input type="file" id="resume-file-input" accept=".pdf,.docx,.doc" style="display: none;">
+            </label>
+          </div>
+
+          <div class="role-target-group">
+            <input type="text" class="input" id="resume-role-input" placeholder="Designate role / pattern (e.g. AI Engineer, SWE, FDE, Full Stack)...">
+          </div>
+
+          <div class="resume-default-checkbox">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer;">
+              <input type="checkbox" id="resume-is-default">
+              <span>Default Fallback</span>
+            </label>
+          </div>
+
+          <button class="button button-primary" id="btn-upload-resume" type="button">
+            Upload & Map
+          </button>
+        </div>
+
+        <!-- Role Quick Suggestion Chips -->
+        <div class="role-chips-bar">
+          <span class="role-chip-hint">Quick roles:</span>
+          <button type="button" class="chip-btn" data-chip="AI Engineer">+ AI Engineer</button>
+          <button type="button" class="chip-btn" data-chip="SWE">+ SWE / Software Engineer</button>
+          <button type="button" class="chip-btn" data-chip="FDE">+ FDE / Forward Deployed</button>
+          <button type="button" class="chip-btn" data-chip="Full Stack">+ Full Stack Developer</button>
+          <button type="button" class="chip-btn" data-chip="Backend">+ Backend Developer</button>
+          <button type="button" class="chip-btn" data-chip="*">+ Default (*)</button>
+        </div>
+
+        <!-- Active Mappings Table -->
+        <div class="resumes-table-wrapper" style="margin-top: var(--space-4);">
+          <table class="table" id="resumes-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Designated Role</th>
+                <th style="width: 35%;">File Name</th>
+                <th style="width: 12%;">Size</th>
+                <th style="width: 13%;">Default</th>
+                <th style="width: 15%; text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="resumes-tbody">
+              <!-- Dynamically populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: var(--space-5);">
         <!-- Form Fields -->
         <div class="panel">
