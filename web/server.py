@@ -7,7 +7,7 @@ from typing import Optional, Dict, Any, List
 
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
-from starlette.responses import JSONResponse, HTMLResponse, Response
+from starlette.responses import JSONResponse, HTMLResponse, Response, FileResponse
 from starlette.staticfiles import StaticFiles
 from starlette.requests import Request
 import uvicorn
@@ -214,6 +214,89 @@ async def api_save_profile(request: Request) -> JSONResponse:
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
+async def api_get_resumes(request: Request) -> JSONResponse:
+    """Retrieve all role-mapped resumes."""
+    profile_mgr.reload()
+    items = []
+    for r in profile_mgr.profile.role_resumes:
+        path = Path(r.file_path)
+        items.append({
+            "id": r.id,
+            "role_pattern": r.role_pattern,
+            "file_name": r.file_name,
+            "file_size_kb": r.file_size_kb,
+            "uploaded_at": r.uploaded_at,
+            "is_default": r.is_default,
+            "exists": path.exists()
+        })
+    return JSONResponse({"resumes": items, "count": len(items)})
+
+
+async def api_upload_resume(request: Request) -> JSONResponse:
+    """Upload and register a role-mapped resume file."""
+    import re
+    try:
+        form = await request.form()
+        file_obj = form.get("file")
+        role = str(form.get("role", "")).strip()
+        is_default = str(form.get("is_default", "false")).lower() in ("true", "1", "yes")
+
+        if not file_obj or not hasattr(file_obj, "filename") or not file_obj.filename:
+            return JSONResponse({"error": "No file uploaded"}, status_code=400)
+
+        if not role:
+            return JSONResponse({"error": "Designated role pattern is required"}, status_code=400)
+
+        upload_dir = Path("data/resumes")
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        original_name = Path(file_obj.filename).name
+        role_slug = re.sub(r'[^a-zA-Z0-9_-]', '_', role.lower()).strip('_')
+        suffix = Path(original_name).suffix.lower() or ".pdf"
+        dest_filename = f"resume_{role_slug}{suffix}"
+        dest_path = upload_dir / dest_filename
+
+        content = await file_obj.read()
+        dest_path.write_bytes(content)
+
+        mapping = profile_mgr.add_role_resume(
+            file_path=str(dest_path),
+            role_pattern=role,
+            original_filename=original_name,
+            is_default=is_default
+        )
+
+        return JSONResponse({"success": True, "resume": mapping.model_dump()})
+
+    except Exception as e:
+        logger.error(f"Resume upload failed: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_delete_resume(request: Request) -> JSONResponse:
+    """Delete a role resume mapping."""
+    resume_id = request.path_params["resume_id"]
+    success = profile_mgr.remove_role_resume(resume_id)
+    if success:
+        return JSONResponse({"success": True, "message": f"Resume mapping '{resume_id}' removed"})
+    return JSONResponse({"error": f"Resume mapping '{resume_id}' not found"}, status_code=404)
+
+
+async def api_download_resume(request: Request) -> Response:
+    """Download or preview a stored resume."""
+    resume_id = request.path_params["resume_id"]
+    mapping = profile_mgr.get_resume_by_id(resume_id)
+    if not mapping:
+        return JSONResponse({"error": "Resume not found"}, status_code=404)
+
+    path = Path(mapping.file_path)
+    if not path.exists():
+        return JSONResponse({"error": "File does not exist on disk"}, status_code=404)
+
+    media_type = "application/pdf" if path.suffix.lower() == ".pdf" else "application/octet-stream"
+    return FileResponse(path=str(path), media_type=media_type, filename=mapping.file_name)
+
+
 async def api_get_platforms(request: Request) -> JSONResponse:
     """List all registered platforms."""
     platforms = registry.list_platforms()
@@ -303,6 +386,10 @@ routes = [
     Route("/api/jobs/{job_id}/apply", api_apply_job, methods=["POST"]),
     Route("/api/profile", api_get_profile, methods=["GET"]),
     Route("/api/profile", api_save_profile, methods=["POST"]),
+    Route("/api/resumes", api_get_resumes, methods=["GET"]),
+    Route("/api/resumes/upload", api_upload_resume, methods=["POST"]),
+    Route("/api/resumes/{resume_id}", api_delete_resume, methods=["DELETE"]),
+    Route("/api/resumes/{resume_id}/download", api_download_resume, methods=["GET"]),
     Route("/api/platforms", api_get_platforms, methods=["GET"]),
     Route("/api/platforms", api_add_platform, methods=["POST"]),
     Route("/api/platforms/{name}/toggle", api_toggle_platform, methods=["POST"]),
