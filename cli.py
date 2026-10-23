@@ -1,6 +1,7 @@
 """Command Line Interface (CLI) for MCP Autonomous Job Application Agent."""
 import sys
 import asyncio
+from pathlib import Path
 import click
 from rich.console import Console
 from rich.table import Table
@@ -308,6 +309,125 @@ def remove_platform_cmd(name):
         console.print(f"[bold green][+] Removed custom platform '{name}' successfully.[/bold green]")
     else:
         console.print(f"[red]Error: Cannot remove platform '{name}' (may be built-in or not found).[/red]")
+
+
+@cli.group()
+def resume():
+    """Manage multi-resume mappings for automatic role-tailored applications."""
+    pass
+
+
+@resume.command(name="list")
+def list_resumes_cmd():
+    """List all mapped resumes and their designated roles."""
+    profile_mgr = ProfileManager()
+    resumes = profile_mgr.profile.role_resumes
+
+    if not resumes:
+        console.print("[yellow]No role-mapped resumes configured yet. Use 'python cli.py resume upload' to register one.[/yellow]")
+        return
+
+    table = Table(title="Role-Tailored Resume Matrix", show_header=True, header_style="bold magenta")
+    table.add_column("ID", style="dim", width=10)
+    table.add_column("Designated Role / Pattern", style="bold cyan")
+    table.add_column("File Name", style="white")
+    table.add_column("Size", justify="right")
+    table.add_column("Default", justify="center")
+    table.add_column("Status", width=10)
+
+    for r in resumes:
+        path = Path(r.file_path)
+        status = "[green]Ready[/green]" if path.exists() else "[red]Missing[/red]"
+        default_str = "[yellow]Yes (★)[/yellow]" if r.is_default else "[dim]No[/dim]"
+        size_str = f"{r.file_size_kb:.1f} KB" if r.file_size_kb else "-"
+        table.add_row(
+            r.id,
+            r.role_pattern,
+            r.file_name,
+            size_str,
+            default_str,
+            status
+        )
+
+    console.print(table)
+
+
+@resume.command(name="upload")
+@click.option("--file", "-f", required=True, type=click.Path(exists=True), help="Path to resume file (.pdf, .docx)")
+@click.option("--role", "-r", required=True, help="Designated role (e.g. 'AI Engineer', 'SWE', 'FDE', 'Full Stack', '*')")
+@click.option("--default", "-d", is_flag=True, help="Set as default fallback resume")
+def upload_resume_cmd(file, role, default):
+    """Upload and map a resume to a specific job role."""
+    import shutil
+    import re
+    profile_mgr = ProfileManager()
+    src_path = Path(file)
+
+    # Destination directory
+    dest_dir = Path("data/resumes")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    role_slug = re.sub(r'[^a-zA-Z0-9_-]', '_', role.lower()).strip('_')
+    dest_filename = f"resume_{role_slug}{src_path.suffix.lower()}"
+    dest_path = dest_dir / dest_filename
+
+    shutil.copyfile(src_path, dest_path)
+
+    mapping = profile_mgr.add_role_resume(
+        file_path=str(dest_path),
+        role_pattern=role,
+        original_filename=src_path.name,
+        is_default=default
+    )
+
+    console.print(Panel.fit(
+        f"[bold green][+] Successfully Uploaded & Mapped Resume![/bold green]\n\n"
+        f"Designated Role: [bold cyan]{mapping.role_pattern}[/bold cyan]\n"
+        f"File: [white]{src_path.name}[/white] ({mapping.file_size_kb:.1f} KB)\n"
+        f"Stored At: [dim]{dest_path}[/dim]\n"
+        f"Default Fallback: [bold yellow]{'Yes' if mapping.is_default else 'No'}[/bold yellow]",
+        border_style="green"
+    ))
+
+
+@resume.command(name="delete")
+@click.argument("identifier")
+def delete_resume_cmd(identifier):
+    """Remove a resume mapping by its ID or role pattern."""
+    profile_mgr = ProfileManager()
+    success = profile_mgr.remove_role_resume(identifier)
+    if success:
+        console.print(f"[bold green][+] Removed resume mapping for '{identifier}'.[/bold green]")
+    else:
+        console.print(f"[red]Error: Resume mapping '{identifier}' not found.[/red]")
+
+
+@resume.command(name="test")
+@click.argument("job_title")
+def test_resume_matching_cmd(job_title):
+    """Simulate which resume would be dynamically chosen for a given job title."""
+    from core.models import JobListing
+    profile_mgr = ProfileManager()
+    dummy_job = JobListing(
+        id="test",
+        platform="cli_test",
+        title=job_title,
+        company="Test Corp",
+        location="Remote",
+        url="https://example.com"
+    )
+    selected = profile_mgr.get_resume_for_job(dummy_job)
+
+    if selected:
+        console.print(Panel.fit(
+            f"Job Title Query: [bold white]'{job_title}'[/bold white]\n"
+            f"Selected Resume: [bold green]{selected.name}[/bold green]\n"
+            f"Path: [dim]{selected}[/dim]",
+            title="Resume Routing Resolution",
+            border_style="cyan"
+        ))
+    else:
+        console.print(f"[yellow]No resume resolved for '{job_title}'.[/yellow]")
 
 
 @cli.command()
