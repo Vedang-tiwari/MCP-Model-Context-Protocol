@@ -16,7 +16,10 @@ from discovery.providers import (
     ATSDirectProvider,
     WellfoundProvider,
     NaukriProvider,
-    InternshalaProvider
+    InternshalaProvider,
+    RemoteOKProvider,
+    RemotiveProvider,
+    ArbeitnowProvider
 )
 from discovery.providers.custom_dynamic import CustomPlatformProvider
 
@@ -39,14 +42,6 @@ class PlatformRegistry:
         """Initializes default custom platforms file if it does not exist."""
         if not self.custom_platforms_path.exists():
             default_platforms = [
-                {
-                    "name": "remoteok",
-                    "display_name": "RemoteOK",
-                    "platform_type": "rss",
-                    "enabled": True,
-                    "url_template": "https://remoteok.com/remote-jobs.rss",
-                    "max_items_per_cycle": 20
-                },
                 {
                     "name": "weworkremotely",
                     "display_name": "WeWorkRemotely",
@@ -85,8 +80,11 @@ class PlatformRegistry:
         self.providers["linkedin"] = LinkedInProvider()
         self.providers["indeed"] = IndeedProvider()
         self.providers["wellfound"] = WellfoundProvider()
-        self.providers["naukri"] = NaukriProvider()
+        self.providers["remoteok"] = RemoteOKProvider()
+        self.providers["remotive"] = RemotiveProvider()
+        self.providers["arbeitnow"] = ArbeitnowProvider()
         self.providers["internshala"] = InternshalaProvider()
+        self.providers["naukri"] = NaukriProvider()
 
         # 2. Load Custom Platforms from JSON
         if self.custom_platforms_path.exists():
@@ -175,13 +173,23 @@ class PlatformRegistry:
         output = []
 
         # Built-ins
-        builtins = ["ats_direct", "linkedin", "indeed", "wellfound", "naukri", "internshala"]
-        for b in builtins:
+        builtins = [
+            ("ats_direct", "Direct ATS (Greenhouse / Lever)"),
+            ("linkedin", "LinkedIn Easy Apply"),
+            ("indeed", "Indeed Jobs"),
+            ("wellfound", "Wellfound (AngelList Talent)"),
+            ("remoteok", "RemoteOK Official API"),
+            ("remotive", "Remotive Global API"),
+            ("arbeitnow", "Arbeitnow European / Remote API"),
+            ("internshala", "Internshala & Early Careers"),
+            ("naukri", "Naukri Indian Tech Gateway")
+        ]
+        for slug, label in builtins:
             output.append({
-                "name": b,
-                "display_name": b.upper().replace("_", " "),
+                "name": slug,
+                "display_name": label,
                 "type": "builtin",
-                "enabled": b in self.providers,
+                "enabled": slug in self.providers,
                 "source": "native"
             })
 
