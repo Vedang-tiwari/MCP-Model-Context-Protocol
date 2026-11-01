@@ -1,6 +1,7 @@
 """Profile and search preferences manager with rule-based and semantic match scoring."""
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
 
@@ -263,8 +264,8 @@ class ProfileManager:
             candidate_skills.extend(skills)
 
         for skill in candidate_skills:
-            # Word boundary check for skill
-            if f" {skill.lower()} " in f" {desc_lower} " or f" {skill.lower()} " in f" {title_lower} ":
+            # Word boundary check for skill with punctuation awareness
+            if re.search(r'\b' + re.escape(skill.lower()) + r'\b', f"{title_lower} {desc_lower}"):
                 matched_skills.append(skill)
 
         if matched_skills:
