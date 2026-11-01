@@ -94,7 +94,7 @@ async def api_list_jobs(request: Request) -> JSONResponse:
     if search:
         filtered = []
         for j in raw_jobs:
-            text = f"{j.title} {j.company} {j.location} {j.description or ''}".lower()
+            text = f"{j.title} {j.company} {j.location} {j.salary or ''} {j.description or ''}".lower()
             if search in text:
                 filtered.append(j)
         jobs = filtered[:limit]
@@ -111,6 +111,7 @@ async def api_list_jobs(request: Request) -> JSONResponse:
             "platform": j.platform,
             "url": j.url,
             "apply_url": j.apply_url or j.url,
+            "salary": j.salary,
             "is_easy_apply": j.is_easy_apply,
             "match_score": j.match_score,
             "match_reasons": j.match_reasons or [],
@@ -137,6 +138,7 @@ async def api_get_job(request: Request) -> JSONResponse:
         "platform": job.platform,
         "url": job.url,
         "apply_url": job.apply_url or job.url,
+        "salary": job.salary,
         "is_easy_apply": job.is_easy_apply,
         "match_score": job.match_score,
         "match_reasons": job.match_reasons or [],
