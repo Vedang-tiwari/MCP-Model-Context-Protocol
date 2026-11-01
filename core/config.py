@@ -1,7 +1,15 @@
 """Configuration loader and environment manager."""
+import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 
 # Base paths
 ROOT_DIR = Path(__file__).resolve().parent.parent
