@@ -80,25 +80,25 @@ def list_jobs(limit, status, platform, min_score):
         return
 
     table = Table(title=f"Discovered Jobs ({len(jobs)} shown)", show_header=True, header_style="bold magenta")
-    table.add_column("ID", style="dim", width=12)
-    table.add_column("Role", style="bold white")
-    table.add_column("Company", style="cyan")
-    table.add_column("Platform", style="green")
-    table.add_column("Match", justify="right")
-    table.add_column("Status", style="yellow")
-    table.add_column("Apply URL")
+    table.add_column("ID", style="dim", width=10)
+    table.add_column("Role", style="bold white", width=26)
+    table.add_column("Company", style="cyan", width=18)
+    table.add_column("Platform", style="green", width=14)
+    table.add_column("Package / Salary", style="bold green", width=22)
+    table.add_column("Match", justify="right", width=7)
+    table.add_column("Status", style="yellow", width=12)
 
     for j in jobs:
         score_display = f"{j.match_score}%" if j.match_score is not None else "-"
         score_color = "green" if (j.match_score or 0) >= 75 else ("yellow" if (j.match_score or 0) >= 50 else "red")
         table.add_row(
-            j.id[:10],
-            j.title[:30],
-            j.company[:20],
-            j.platform,
+            j.id[:8],
+            j.title[:24],
+            j.company[:16],
+            j.platform[:12],
+            j.salary or "Competitive",
             f"[{score_color}]{score_display}[/{score_color}]",
-            j.status.value,
-            j.url[:40] + "..." if len(j.url) > 40 else j.url
+            j.status.value
         )
 
     console.print(table)
