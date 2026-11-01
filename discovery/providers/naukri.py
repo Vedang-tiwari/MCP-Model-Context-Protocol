@@ -8,6 +8,7 @@ from typing import List
 from datetime import datetime
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +63,11 @@ class NaukriProvider(BaseJobProvider):
                             loc = ", ".join(item.get("placeholders", [{}])[0].get("label", location).split(","))
 
                             job_id = self.generate_job_id("naukri", company, title, url)
+                            salary = normalize_salary(
+                                explicit_val=item.get("salary"),
+                                fallback_text=f"{title} {desc}",
+                                default_role_fallback=title
+                            )
 
                             results.append(JobListing(
                                 id=job_id,
@@ -71,12 +77,13 @@ class NaukriProvider(BaseJobProvider):
                                 location=loc,
                                 url=url,
                                 apply_url=url,
+                                salary=salary,
                                 is_easy_apply=True,
                                 description=desc[:800],
                                 posted_at=datetime.utcnow(),
                                 discovered_at=datetime.utcnow(),
                                 status=ApplicationStatus.DISCOVERED,
-                                metadata={"job_id_raw": job_id_raw}
+                                metadata={"job_id_raw": job_id_raw, "salary": salary}
                             ))
                     except Exception as e:
                         logger.debug(f"Naukri search for {role} encountered: {e}")
