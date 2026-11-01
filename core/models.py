@@ -26,6 +26,31 @@ class JobPlatform(str, Enum):
     UNSTOP = "unstop"
     CUTSHORT = "cutshort"
     GLASSDOOR = "glassdoor"
+    MONSTER = "monster"
+    FOUNDIT = "foundit"
+    HACK2SKILL = "hack2skills"
+    CUVETTE = "cuvette"
+    FLEXJOBS = "flexjobs"
+    REMOTEOK = "remoteok"
+    REMOTIVE = "remotive"
+    JUSTREMOTE = "justremote"
+    WEWORKREMOTELY = "weworkremotely"
+    WORKINGNOMADS = "workingnomads"
+    FOURDAYWEEK = "4dayweek"
+    JOBSPRESSO = "jobspresso"
+    CROSSOVER = "crossover"
+    UPWORK = "upwork"
+    DEVTO = "devto"
+    SIMPLIFY = "simplify"
+    HANDSHAKE = "handshake"
+    DICE = "dice"
+    RIPPLEMATCH = "ripplematch"
+    DEEP = "deep"
+    GINIA = "ginia"
+    FORAGE = "forage"
+    YCOMBINATOR = "ycombinator"
+    INTERNINSIDER = "interninsider"
+    SNAPHUNT = "snaphunt"
     OTHER = "other"
 
 
@@ -37,6 +62,7 @@ class JobListing(BaseModel):
     location: str = "Remote"
     url: str
     apply_url: Optional[str] = None
+    salary: Optional[str] = Field(default=None, description="Compensation package e.g. ₹18 - ₹25 LPA, $140k - $180k/yr, ₹50,000/mo")
     is_easy_apply: bool = False
     description: Optional[str] = ""
     posted_at: Optional[datetime] = None
