@@ -107,6 +107,7 @@ const DOM = {
   modalJobCompany: document.getElementById('modal-job-company'),
   modalJobLocation: document.getElementById('modal-job-location'),
   modalJobPlatform: document.getElementById('modal-job-platform'),
+  modalJobSalary: document.getElementById('modal-job-salary'),
   modalJobScore: document.getElementById('modal-job-score'),
   modalJobReasons: document.getElementById('modal-job-reasons'),
   modalJobDesc: document.getElementById('modal-job-desc'),
@@ -251,7 +252,13 @@ function renderJobsList(jobs) {
             <span>·</span>
             <span>${escapeHtml(j.location || 'Remote')}</span>
             <span>·</span>
-            <span style="font-family: var(--font-mono); font-size: 11px;">${j.platform}</span>
+            <span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(j.platform)}</span>
+            ${j.salary ? `
+              <span>·</span>
+              <span class="badge badge-salary tabular-nums" title="Compensation Package">
+                💰 ${escapeHtml(j.salary)}
+              </span>
+            ` : ''}
           </div>
         </div>
 
@@ -298,6 +305,14 @@ async function openJobModal(jobId) {
     DOM.modalJobLocation.textContent = job.location || 'Remote';
     DOM.modalJobPlatform.textContent = job.platform;
     DOM.modalJobLink.href = job.apply_url || job.url;
+
+    // Salary package display
+    if (job.salary) {
+      DOM.modalJobSalary.style.display = 'inline-flex';
+      DOM.modalJobSalary.textContent = `💰 ${job.salary}`;
+    } else {
+      DOM.modalJobSalary.style.display = 'none';
+    }
 
     // Score & styling
     DOM.modalJobScore.textContent = `${job.match_score !== null ? job.match_score : 0}%`;
