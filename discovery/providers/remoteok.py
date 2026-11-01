@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,12 @@ class RemoteOKProvider(BaseJobProvider):
                     clean_desc = (raw_desc[:800] if raw_desc else f"Remote role for {title} at {company}")
 
                     job_id = self.generate_job_id("remoteok", company, title, url)
+                    salary = normalize_salary(
+                        min_sal=item.get("salary_min"),
+                        max_sal=item.get("salary_max"),
+                        fallback_text=title,
+                        default_role_fallback=title
+                    )
 
                     results.append(JobListing(
                         id=job_id,
@@ -87,6 +94,7 @@ class RemoteOKProvider(BaseJobProvider):
                         location=location,
                         url=url,
                         apply_url=apply_url,
+                        salary=salary,
                         is_easy_apply=False,
                         description=clean_desc,
                         posted_at=datetime.now(timezone.utc),
