@@ -1,5 +1,7 @@
 """Unit tests for multi-resume role mapping, uploads, and automated routing."""
 import sys
+import os
+sys.path.insert(0, os.path.abspath("."))
 import unittest
 from pathlib import Path
 import tempfile
