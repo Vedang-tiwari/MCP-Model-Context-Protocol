@@ -7,6 +7,7 @@ from typing import List
 from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,10 @@ class ArbeitnowProvider(BaseJobProvider):
                     clean_desc = (desc[:800] if desc else f"Opportunity for {title} at {company}")
 
                     job_id = self.generate_job_id("arbeitnow", company, title, url)
+                    salary = normalize_salary(
+                        fallback_text=f"{title} {clean_desc}",
+                        default_role_fallback=title
+                    )
 
                     results.append(JobListing(
                         id=job_id,
@@ -78,6 +83,7 @@ class ArbeitnowProvider(BaseJobProvider):
                         location=location,
                         url=url,
                         apply_url=url,
+                        salary=salary,
                         is_easy_apply=False,
                         description=clean_desc,
                         posted_at=datetime.now(timezone.utc),
@@ -85,7 +91,8 @@ class ArbeitnowProvider(BaseJobProvider):
                         status=ApplicationStatus.DISCOVERED,
                         metadata={
                             "remote": item.get("remote"),
-                            "tags": tags[:5]
+                            "tags": tags[:5],
+                            "salary": salary
                         }
                     ))
 
