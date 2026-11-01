@@ -7,6 +7,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +101,7 @@ class ATSDirectProvider(BaseJobProvider):
             job_url = item.get("absolute_url", "")
             loc = item.get("location", {}).get("name", "Remote")
             job_id = self.generate_job_id("greenhouse", company, title, job_url)
+            salary = normalize_salary(fallback_text=f"{title} {loc}", default_role_fallback=title)
 
             matched.append(JobListing(
                 id=job_id,
@@ -109,12 +111,13 @@ class ATSDirectProvider(BaseJobProvider):
                 location=loc,
                 url=job_url,
                 apply_url=job_url,
+                salary=salary,
                 is_easy_apply=False,
-                description=f"Direct ATS job listing for {title} at {company.capitalize()}",
+                description=f"Direct ATS job listing for {title} at {company.capitalize()}. Compensation: {salary}",
                 posted_at=datetime.now(timezone.utc),
                 discovered_at=datetime.now(timezone.utc),
                 status=ApplicationStatus.DISCOVERED,
-                metadata={"ats_type": "greenhouse", "board_token": company}
+                metadata={"ats_type": "greenhouse", "board_token": company, "salary": salary}
             ))
 
             if len(matched) >= 30:  # Cap per company to keep balance
@@ -147,6 +150,8 @@ class ATSDirectProvider(BaseJobProvider):
             job_url = item.get("applyUrl") or item.get("hostedUrl", "")
             categories = item.get("categories", {})
             loc = categories.get("location", "Remote")
+            plain_desc = item.get("descriptionPlain", "")
+            salary = normalize_salary(fallback_text=f"{title} {plain_desc[:500]}", default_role_fallback=title)
             job_id = self.generate_job_id("lever", company, title, job_url)
 
             matched.append(JobListing(
@@ -157,12 +162,13 @@ class ATSDirectProvider(BaseJobProvider):
                 location=loc,
                 url=job_url,
                 apply_url=job_url,
+                salary=salary,
                 is_easy_apply=False,
-                description=item.get("descriptionPlain", "")[:800],
+                description=plain_desc[:800],
                 posted_at=datetime.now(timezone.utc),
                 discovered_at=datetime.now(timezone.utc),
                 status=ApplicationStatus.DISCOVERED,
-                metadata={"ats_type": "lever", "board_token": company}
+                metadata={"ats_type": "lever", "board_token": company, "salary": salary}
             ))
 
             if len(matched) >= 30:
