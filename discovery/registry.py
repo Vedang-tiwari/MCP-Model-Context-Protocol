@@ -19,7 +19,16 @@ from discovery.providers import (
     InternshalaProvider,
     RemoteOKProvider,
     RemotiveProvider,
-    ArbeitnowProvider
+    ArbeitnowProvider,
+    WorkingNomadsProvider,
+    UnstopProvider,
+    FourDayWeekProvider,
+    YCombinatorProvider,
+    SimplifyJobsProvider,
+    DevToProvider,
+    CrossoverProvider,
+    CutshortProvider,
+    FounditProvider
 )
 from discovery.providers.custom_dynamic import CustomPlatformProvider
 
@@ -85,6 +94,16 @@ class PlatformRegistry:
         self.providers["arbeitnow"] = ArbeitnowProvider()
         self.providers["internshala"] = InternshalaProvider()
         self.providers["naukri"] = NaukriProvider()
+        self.providers["workingnomads"] = WorkingNomadsProvider()
+        self.providers["unstop"] = UnstopProvider()
+        self.providers["4dayweek"] = FourDayWeekProvider()
+        self.providers["ycombinator"] = YCombinatorProvider()
+        self.providers["simplify"] = SimplifyJobsProvider()
+        self.providers["devto"] = DevToProvider()
+        self.providers["crossover"] = CrossoverProvider()
+        self.providers["cutshort"] = CutshortProvider()
+        self.providers["cutshot"] = CutshortProvider()
+        self.providers["foundit"] = FounditProvider()
 
         # 2. Load Custom Platforms from JSON
         if self.custom_platforms_path.exists():
@@ -182,7 +201,16 @@ class PlatformRegistry:
             ("remotive", "Remotive Global API"),
             ("arbeitnow", "Arbeitnow European / Remote API"),
             ("internshala", "Internshala & Early Careers"),
-            ("naukri", "Naukri Indian Tech Gateway")
+            ("naukri", "Naukri Indian Tech Gateway"),
+            ("workingnomads", "Working Nomads Global API"),
+            ("unstop", "Unstop Tech & Early Careers"),
+            ("4dayweek", "4dayweek Flexible & Remote"),
+            ("ycombinator", "Y Combinator & HN Jobs"),
+            ("simplify", "Simplify Tech & New Grad Index"),
+            ("devto", "Dev.to Developer Jobs"),
+            ("crossover", "Crossover Elite Remote ($100k-$400k)"),
+            ("cutshort", "Cutshort Indian Tech Startups (LPA)"),
+            ("foundit", "Foundit / Monster APAC (LPA)")
         ]
         for slug, label in builtins:
             output.append({
