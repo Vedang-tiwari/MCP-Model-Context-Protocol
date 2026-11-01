@@ -8,6 +8,7 @@ from typing import List
 from datetime import datetime
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,14 @@ class InternshalaProvider(BaseJobProvider):
                         if not href.startswith("http"):
                             href = f"https://internshala.com{href}"
 
+                        stipend_el = card.select_one(".stipend, .salary, .item_body")
+                        stipend_text = stipend_el.get_text(strip=True) if stipend_el else ""
+                        salary = normalize_salary(
+                            explicit_val=stipend_text,
+                            fallback_text=f"{title} {stipend_text}",
+                            default_role_fallback=title
+                        )
+
                         job_id = self.generate_job_id("internshala", company, title, href)
 
                         results.append(JobListing(
@@ -66,12 +75,13 @@ class InternshalaProvider(BaseJobProvider):
                             location=loc,
                             url=href,
                             apply_url=href,
+                            salary=salary,
                             is_easy_apply=True,
-                            description=f"Internshala opportunity for {title} at {company}",
+                            description=f"Internshala opportunity for {title} at {company}. Stipend/Compensation: {salary}",
                             posted_at=datetime.utcnow(),
                             discovered_at=datetime.utcnow(),
                             status=ApplicationStatus.DISCOVERED,
-                            metadata={"role": role}
+                            metadata={"role": role, "salary": salary}
                         ))
                 except Exception as e:
                     logger.debug(f"Internshala search for {role} encountered: {e}")
