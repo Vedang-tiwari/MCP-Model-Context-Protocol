@@ -27,6 +27,7 @@ playwright-report/
 
 # Local runner scripts
 powershell.cmd
+scratch/
 
 # IDE and OS artifacts
 .vscode/
