@@ -11,6 +11,7 @@ from playwright.async_api import async_playwright
 
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +95,14 @@ class WellfoundProvider(BaseJobProvider):
                 remote_locs = v.get("acceptedRemoteLocationNames", [])
                 loc = ", ".join(loc_names + remote_locs) if (loc_names or remote_locs) else ("Remote" if v.get("remote") else "Hybrid")
 
+                salary = normalize_salary(
+                    explicit_val=comp,
+                    fallback_text=f"{title} {comp}",
+                    default_role_fallback=title
+                )
+
                 job_url = f"https://wellfound.com/jobs/{job_id_num}-{slug}" if slug else f"https://wellfound.com/jobs/{job_id_num}"
-                clean_desc = f"Startup position for {title} at {company}. Compensation: {comp}. Location: {loc}."
+                clean_desc = f"Startup position for {title} at {company}. Compensation: {salary or comp}. Location: {loc}."
 
                 job_id = self.generate_job_id("wellfound", company, title, job_url)
 
@@ -107,13 +114,14 @@ class WellfoundProvider(BaseJobProvider):
                     location=loc,
                     url=job_url,
                     apply_url=job_url,
+                    salary=salary or comp,
                     is_easy_apply=True,
                     description=clean_desc,
                     posted_at=datetime.now(timezone.utc),
                     discovered_at=datetime.now(timezone.utc),
                     status=ApplicationStatus.DISCOVERED,
                     metadata={
-                        "compensation": comp,
+                        "compensation": salary or comp,
                         "wellfound_id": job_id_num,
                         "remote": v.get("remote", False)
                     }
