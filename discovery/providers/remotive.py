@@ -7,6 +7,7 @@ from typing import List
 from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,11 @@ class RemotiveProvider(BaseJobProvider):
                     clean_desc = (desc[:800] if desc else f"Remotive job posting for {title} at {company}")
 
                     job_id = self.generate_job_id("remotive", company, title, url)
+                    salary = normalize_salary(
+                        explicit_val=item.get("salary"),
+                        fallback_text=f"{title} {clean_desc}",
+                        default_role_fallback=title
+                    )
 
                     results.append(JobListing(
                         id=job_id,
@@ -60,6 +66,7 @@ class RemotiveProvider(BaseJobProvider):
                         location=location,
                         url=url,
                         apply_url=url,
+                        salary=salary,
                         is_easy_apply=False,
                         description=clean_desc,
                         posted_at=datetime.now(timezone.utc),
