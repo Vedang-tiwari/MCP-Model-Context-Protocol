@@ -470,6 +470,21 @@ button {
   border-color: rgba(74, 222, 128, 0.25);
 }
 
+.badge-salary {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.28);
+  background: rgba(74, 222, 128, 0.08);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  padding: 2px 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.badge-salary:hover {
+  background: rgba(74, 222, 128, 0.14);
+  border-color: rgba(74, 222, 128, 0.45);
+}
+
 .badge-warning {
   color: var(--color-warning);
   border-color: rgba(251, 191, 36, 0.25);
