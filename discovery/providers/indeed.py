@@ -10,6 +10,7 @@ from playwright.async_api import async_playwright
 
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,14 @@ class IndeedProvider(BaseJobProvider):
                                 snippet_el = card.select_one(".job-snippet, [data-testid='job-snippet']")
                                 snippet = snippet_el.get_text(" ", strip=True) if snippet_el else f"{title} at {company}"
 
+                                sal_el = card.select_one(".salary-snippet-container, [data-testid='attribute_snippet_testid'], .metadata.salary-snippet-container")
+                                sal_text = sal_el.get_text(strip=True) if sal_el else ""
+                                salary = normalize_salary(
+                                    explicit_val=sal_text,
+                                    fallback_text=f"{title} {sal_text} {snippet}",
+                                    default_role_fallback=title
+                                )
+
                                 job_id = self.generate_job_id("indeed", company, title, job_url)
 
                                 results.append(JobListing(
@@ -96,12 +105,13 @@ class IndeedProvider(BaseJobProvider):
                                     location=loc,
                                     url=job_url,
                                     apply_url=job_url,
+                                    salary=salary,
                                     is_easy_apply=False,
                                     description=snippet[:800],
                                     posted_at=datetime.now(timezone.utc),
                                     discovered_at=datetime.now(timezone.utc),
                                     status=ApplicationStatus.DISCOVERED,
-                                    metadata={"search_role": role, "search_location": location}
+                                    metadata={"search_role": role, "search_location": location, "salary": salary}
                                 ))
 
                                 if len(results) >= 40:
