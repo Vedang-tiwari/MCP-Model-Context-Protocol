@@ -117,18 +117,43 @@
         </div>
 
         <select class="select filter-select" id="filter-platform">
-          <option value="">All Platforms</option>
+          <option value="">All Platforms (30+)</option>
           <option value="ats_direct">Direct ATS (Greenhouse/Lever)</option>
           <option value="linkedin">LinkedIn</option>
           <option value="indeed">Indeed</option>
           <option value="wellfound">Wellfound</option>
-          <option value="naukri">Naukri</option>
+          <option value="naukri">Naukri (India LPA)</option>
           <option value="internshala">Internshala</option>
-          <option value="jobicy">Jobicy API</option>
-          <option value="weworkremotely">WeWorkRemotely</option>
+          <option value="cutshort">Cutshort (India LPA)</option>
+          <option value="foundit">Foundit (Monster APAC)</option>
+          <option value="monster">Monster</option>
+          <option value="cuvette">Cuvette (India LPA)</option>
+          <option value="hack2skills">Hack2skill</option>
+          <option value="unstop">Unstop (Tech & Early Career)</option>
           <option value="remoteok">RemoteOK</option>
           <option value="remotive">Remotive</option>
+          <option value="workingnomads">Working Nomads</option>
+          <option value="4dayweek">4dayweek (32h Remote)</option>
+          <option value="crossover">Crossover ($100k-$400k)</option>
+          <option value="ycombinator">Y Combinator & HN</option>
+          <option value="simplify">Simplify Jobs</option>
+          <option value="devto">Dev.to Jobs</option>
+          <option value="weworkremotely">WeWorkRemotely</option>
+          <option value="justremote">JustRemote</option>
+          <option value="jobspresso">Jobspresso</option>
+          <option value="flexjobs">FlexJobs</option>
+          <option value="handshake">Handshake</option>
+          <option value="glassdoor">Glassdoor</option>
+          <option value="dice">Dice</option>
+          <option value="ripplematch">RippleMatch</option>
+          <option value="deep">Deep Tech & AI</option>
+          <option value="ginia">Ginia AI</option>
+          <option value="forage">Forage</option>
+          <option value="interninsider">Intern Insider</option>
+          <option value="snaphunt">Snaphunt</option>
+          <option value="upwork">Upwork Contracts</option>
           <option value="arbeitnow">Arbeitnow</option>
+          <option value="jobicy">Jobicy API</option>
         </select>
 
         <select class="select filter-select" id="filter-score">
@@ -513,12 +538,13 @@
       <div class="modal-header">
         <div>
           <h2 id="modal-job-title" style="font-size: 18px; font-weight: 600; color: var(--color-text);">Job Title</h2>
-          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
             <span id="modal-job-company" style="font-size: 13px; color: var(--color-text-muted);">Company</span>
             <span>·</span>
             <span id="modal-job-location" style="font-size: 13px; color: var(--color-text-muted);">Location</span>
             <span>·</span>
             <span class="badge" id="modal-job-platform">platform</span>
+            <span class="badge badge-salary tabular-nums" id="modal-job-salary" style="display: none;">💰 Package</span>
           </div>
         </div>
         <button class="button button-secondary button-sm" id="btn-close-modal">✕</button>
