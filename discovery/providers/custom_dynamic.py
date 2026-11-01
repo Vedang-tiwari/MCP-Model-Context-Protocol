@@ -11,6 +11,7 @@ from datetime import datetime
 
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus, CustomPlatformConfig, PlatformType
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,7 @@ class CustomPlatformProvider(BaseJobProvider):
                             company = parts[-1].strip()
 
                         job_id = self.generate_job_id(self.name, company, title, link)
+                        salary = normalize_salary(fallback_text=f"{title} {desc}", default_role_fallback=title)
 
                         results.append(JobListing(
                             id=job_id,
@@ -89,6 +91,7 @@ class CustomPlatformProvider(BaseJobProvider):
                             location="Remote",
                             url=link,
                             apply_url=link,
+                            salary=salary,
                             is_easy_apply=False,
                             description=desc[:1000],
                             posted_at=datetime.utcnow(),
@@ -137,6 +140,14 @@ class CustomPlatformProvider(BaseJobProvider):
                             continue
 
                         job_id = self.generate_job_id(self.name, company, title, job_url)
+                        raw_salary = self._resolve_nested_key(item, mapping.get("salary", "salary"))
+                        salary = normalize_salary(
+                            explicit_val=str(raw_salary) if raw_salary else None,
+                            min_sal=self._resolve_nested_key(item, "salary_min") or self._resolve_nested_key(item, "min_salary"),
+                            max_sal=self._resolve_nested_key(item, "salary_max") or self._resolve_nested_key(item, "max_salary"),
+                            fallback_text=f"{title} {desc}",
+                            default_role_fallback=title
+                        )
 
                         results.append(JobListing(
                             id=job_id,
@@ -146,6 +157,7 @@ class CustomPlatformProvider(BaseJobProvider):
                             location=loc,
                             url=job_url,
                             apply_url=job_url,
+                            salary=salary,
                             is_easy_apply=False,
                             description=desc[:1000],
                             posted_at=datetime.utcnow(),
@@ -198,6 +210,9 @@ class CustomPlatformProvider(BaseJobProvider):
                             base_domain = "/".join(url.split("/")[:3])
                             job_url = f"{base_domain}/{job_url.lstrip('/')}"
 
+                        card_text = card.get_text(" ", strip=True)
+                        salary = normalize_salary(fallback_text=card_text, default_role_fallback=title)
+
                         job_id = self.generate_job_id(self.name, company, title, job_url)
 
                         results.append(JobListing(
@@ -208,6 +223,7 @@ class CustomPlatformProvider(BaseJobProvider):
                             location=loc,
                             url=job_url,
                             apply_url=job_url,
+                            salary=salary,
                             is_easy_apply=False,
                             description=f"Job posting for {title} at {company}",
                             posted_at=datetime.utcnow(),
