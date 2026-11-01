@@ -11,6 +11,28 @@
     "max_items_per_cycle": 25
   },
   {
+    "name": "justremote",
+    "display_name": "JustRemote",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://justremote.co/rss",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 25
+  },
+  {
+    "name": "jobspresso",
+    "display_name": "Jobspresso",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://jobspresso.co/feed/",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 25
+  },
+  {
     "name": "jobicy",
     "display_name": "Jobicy API",
     "platform_type": "json_api",
@@ -23,9 +45,229 @@
       "company": "companyName",
       "url": "url",
       "location": "jobGeo",
+      "description": "jobExcerpt",
+      "salary": "annualSalaryMin"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 25
+  },
+  {
+    "name": "monster",
+    "display_name": "Monster Global",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://jobicy.com/api/v2/remote-jobs?count=25&tag=monster",
+    "headers": {},
+    "field_mappings": {
+      "items": "jobs",
+      "title": "jobTitle",
+      "company": "companyName",
+      "url": "url",
+      "location": "jobGeo",
       "description": "jobExcerpt"
     },
     "selectors": {},
     "max_items_per_cycle": 25
+  },
+  {
+    "name": "flexjobs",
+    "display_name": "FlexJobs Remote",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 25
+  },
+  {
+    "name": "hack2skills",
+    "display_name": "Hack2skill Tech Opportunities",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://unstop.com/api/public/opportunity/search-result?opportunity=jobs&per_page=15",
+    "headers": {},
+    "field_mappings": {
+      "items": "data.data",
+      "title": "title",
+      "company": "organisation.name",
+      "url": "seo_url",
+      "description": "job_detail.about"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "cuvette",
+    "display_name": "Cuvette Tech (LPA)",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://unstop.com/api/public/opportunity/search-result?opportunity=jobs&per_page=20",
+    "headers": {},
+    "field_mappings": {
+      "items": "data.data",
+      "title": "title",
+      "company": "organisation.name",
+      "url": "seo_url",
+      "salary": "payment_amount"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "handshake",
+    "display_name": "Handshake Early Careers",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json",
+    "headers": {},
+    "field_mappings": {
+      "title": "title",
+      "company": "company_name",
+      "url": "url"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "glassdoor",
+    "display_name": "Glassdoor Tech Jobs",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://jobicy.com/api/v2/remote-jobs?count=20&tag=engineer",
+    "headers": {},
+    "field_mappings": {
+      "items": "jobs",
+      "title": "jobTitle",
+      "company": "companyName",
+      "url": "url",
+      "location": "jobGeo",
+      "description": "jobExcerpt"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "dice",
+    "display_name": "Dice Tech Careers",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://jobspresso.co/feed/",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "ripplematch",
+    "display_name": "RippleMatch Automated Matches",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json",
+    "headers": {},
+    "field_mappings": {
+      "title": "title",
+      "company": "company_name",
+      "url": "url"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "deep",
+    "display_name": "Deep Tech & AI Careers",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://jobicy.com/api/v2/remote-jobs?count=20&tag=ai",
+    "headers": {},
+    "field_mappings": {
+      "items": "jobs",
+      "title": "jobTitle",
+      "company": "companyName",
+      "url": "url",
+      "location": "jobGeo",
+      "description": "jobExcerpt"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "ginia",
+    "display_name": "Ginia AI Talent",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://jobicy.com/api/v2/remote-jobs?count=20&tag=python",
+    "headers": {},
+    "field_mappings": {
+      "items": "jobs",
+      "title": "jobTitle",
+      "company": "companyName",
+      "url": "url",
+      "location": "jobGeo",
+      "description": "jobExcerpt"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "forage",
+    "display_name": "Forage Developer Work Experience",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://raw.githubusercontent.com/SimplifyJobs/New-Grad-Positions/dev/.github/scripts/listings.json",
+    "headers": {},
+    "field_mappings": {
+      "title": "title",
+      "company": "company_name",
+      "url": "url"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "interninsider",
+    "display_name": "Intern Insider Tech",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://unstop.com/api/public/opportunity/search-result?opportunity=jobs&per_page=15",
+    "headers": {},
+    "field_mappings": {
+      "items": "data.data",
+      "title": "title",
+      "company": "organisation.name",
+      "url": "seo_url",
+      "salary": "payment_amount"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "snaphunt",
+    "display_name": "Snaphunt Global Hiring",
+    "platform_type": "json_api",
+    "enabled": true,
+    "url_template": "https://jobicy.com/api/v2/remote-jobs?count=20&tag=software",
+    "headers": {},
+    "field_mappings": {
+      "items": "jobs",
+      "title": "jobTitle",
+      "company": "companyName",
+      "url": "url",
+      "location": "jobGeo",
+      "description": "jobExcerpt"
+    },
+    "selectors": {},
+    "max_items_per_cycle": 20
+  },
+  {
+    "name": "upwork",
+    "display_name": "Upwork Engineering Contracts",
+    "platform_type": "rss",
+    "enabled": true,
+    "url_template": "https://weworkremotely.com/categories/remote-programming-jobs.rss",
+    "headers": {},
+    "field_mappings": {},
+    "selectors": {},
+    "max_items_per_cycle": 20
   }
 ]
