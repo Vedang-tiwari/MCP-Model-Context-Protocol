@@ -15,7 +15,7 @@ class DatabaseManager:
 
     @contextmanager
     def _get_connection(self):
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=15.0)
         conn.row_factory = sqlite3.Row
         try:
             yield conn
@@ -24,6 +24,10 @@ class DatabaseManager:
 
     def _init_db(self):
         with self._get_connection() as conn:
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+            except Exception:
+                pass
             cursor = conn.cursor()
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS jobs (
@@ -34,6 +38,7 @@ class DatabaseManager:
                 location TEXT,
                 url TEXT NOT NULL,
                 apply_url TEXT,
+                salary TEXT,
                 is_easy_apply INTEGER DEFAULT 0,
                 description TEXT,
                 posted_at TEXT,
@@ -44,6 +49,12 @@ class DatabaseManager:
                 metadata TEXT
             )
             """)
+
+            # Ensure salary column exists if upgrading database
+            try:
+                cursor.execute("ALTER TABLE jobs ADD COLUMN salary TEXT")
+            except sqlite3.OperationalError:
+                pass
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS applications (
@@ -80,9 +91,9 @@ class DatabaseManager:
             cursor.execute("""
             INSERT INTO jobs (
                 id, platform, title, company, location, url, apply_url,
-                is_easy_apply, description, posted_at, discovered_at,
+                salary, is_easy_apply, description, posted_at, discovered_at,
                 match_score, match_reasons, status, metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 job.id,
                 job.platform,
@@ -91,6 +102,7 @@ class DatabaseManager:
                 job.location,
                 job.url,
                 job.apply_url,
+                job.salary,
                 1 if job.is_easy_apply else 0,
                 job.description or "",
                 job.posted_at.isoformat() if job.posted_at else None,
@@ -213,6 +225,19 @@ class DatabaseManager:
         match_reasons = json.loads(row["match_reasons"]) if row["match_reasons"] else []
         metadata = json.loads(row["metadata"]) if row["metadata"] else {}
 
+        # Resolve salary from column or metadata
+        salary = None
+        if "salary" in row.keys() and row["salary"]:
+            salary = str(row["salary"])
+        elif metadata.get("salary"):
+            salary = str(metadata["salary"])
+        elif metadata.get("compensation"):
+            salary = str(metadata["compensation"])
+        elif metadata.get("package"):
+            salary = str(metadata["package"])
+        elif metadata.get("salary_min") and metadata.get("salary_max"):
+            salary = f"${metadata['salary_min']:,} - ${metadata['salary_max']:,} / yr"
+
         return JobListing(
             id=row["id"],
             platform=row["platform"],
@@ -221,6 +246,7 @@ class DatabaseManager:
             location=row["location"] or "Remote",
             url=row["url"],
             apply_url=row["apply_url"],
+            salary=salary,
             is_easy_apply=bool(row["is_easy_apply"]),
             description=row["description"],
             posted_at=posted_at,
