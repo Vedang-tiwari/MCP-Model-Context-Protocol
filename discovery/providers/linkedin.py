@@ -9,6 +9,7 @@ from typing import List, Optional
 from datetime import datetime
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
+from core.salary_parser import normalize_salary
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,7 @@ class LinkedInProvider(BaseJobProvider):
                             company = company_el.get_text(strip=True) if company_el else "Unknown"
                             loc = loc_el.get_text(strip=True) if loc_el else location
                             job_url = link_el.get("href", "").split("?")[0]
+                            salary = normalize_salary(fallback_text=f"{title} {loc}", default_role_fallback=title)
 
                             job_id = self.generate_job_id("linkedin", company, title, job_url)
 
@@ -74,12 +76,13 @@ class LinkedInProvider(BaseJobProvider):
                                 location=loc,
                                 url=job_url,
                                 apply_url=job_url,
+                                salary=salary,
                                 is_easy_apply=True,
-                                description=f"LinkedIn posting for {title} at {company}",
+                                description=f"LinkedIn posting for {title} at {company}. Package: {salary}",
                                 posted_at=datetime.utcnow(),
                                 discovered_at=datetime.utcnow(),
                                 status=ApplicationStatus.DISCOVERED,
-                                metadata={"search_role": role, "search_location": location}
+                                metadata={"search_role": role, "search_location": location, "salary": salary}
                             ))
                     except Exception as e:
                         logger.error(f"Error fetching LinkedIn jobs for {role}: {e}")
