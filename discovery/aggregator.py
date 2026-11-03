@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from core.models import JobListing, ApplicationStatus
 from core.database import DatabaseManager
 from core.profile_manager import ProfileManager
+from core.role_matcher import matches_target_roles
 from .providers import (
     LinkedInProvider,
     IndeedProvider,
@@ -68,6 +69,12 @@ class JobAggregator:
         qualified_jobs = 0
 
         for job in all_discovered:
+            # Enforce strict target role matching: only ingest listings matching configured target keywords
+            tags = job.metadata.get("tags") if isinstance(job.metadata, dict) else None
+            if active_roles and not matches_target_roles(job.title, active_roles, tags=tags, description=job.description):
+                logger.debug(f"Filtering out '{job.title}' ({job.platform}) - does not match active target role keywords: {active_roles}")
+                continue
+
             # Check if seen
             if self.db.is_job_seen(job.id):
                 continue
