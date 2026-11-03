@@ -20,6 +20,14 @@ class BrowserSessionManager:
 
     async def start(self) -> BrowserContext:
         """Launches a persistent browser session with stealth evasion scripts."""
+        if self.context:
+            try:
+                # If existing context is still alive and responsive, reuse it
+                if self.context.pages is not None:
+                    return self.context
+            except Exception:
+                await self.close()
+
         self.playwright = await async_playwright().start()
 
         # Launch persistent context to preserve logged-in cookies and sessions
@@ -71,8 +79,19 @@ class BrowserSessionManager:
                 await asyncio.sleep(random.uniform(0.1, 0.3))
 
     async def close(self):
-        if self.context:
-            await self.context.close()
-        if self.playwright:
-            await self.playwright.stop()
+        try:
+            if self.context:
+                await self.context.close()
+        except Exception:
+            pass
+        finally:
+            self.context = None
+
+        try:
+            if self.playwright:
+                await self.playwright.stop()
+        except Exception:
+            pass
+        finally:
+            self.playwright = None
         logger.info("Browser session closed cleanly")
