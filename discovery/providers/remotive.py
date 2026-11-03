@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
 from core.salary_parser import normalize_salary
+from core.role_matcher import matches_target_roles
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,11 @@ class RemotiveProvider(BaseJobProvider):
                     company = item.get("company_name", "Remote Company").strip()
                     url = item.get("url", "")
                     if not (title and url):
+                        continue
+
+                    tags = [t.lower() for t in item.get("tags", [])]
+                    # Strictly match target role keywords if configured
+                    if roles and not matches_target_roles(title, roles, tags=tags):
                         continue
 
                     location = item.get("candidate_required_location") or "Worldwide / Remote"
