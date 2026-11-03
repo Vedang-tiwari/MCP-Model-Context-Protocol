@@ -42,7 +42,8 @@ class ApplicationAgent:
         self.db.update_job_status(job.id, ApplicationStatus.APPLYING)
 
         context = await self.session_mgr.start()
-        page = await context.new_page()
+        # Reuse existing page from persistent context to prevent an orphaned 'about:blank' tab
+        page = context.pages[0] if context.pages else await context.new_page()
 
         record = ApplicationRecord(
             job_id=job.id,
@@ -55,6 +56,10 @@ class ApplicationAgent:
         try:
             # Navigate to application URL
             target_url = job.apply_url or job.url
+            if target_url and not target_url.startswith("http"):
+                target_url = f"https://{target_url}"
+
+            logger.info(f"Navigating stealth browser to: {target_url}")
             await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
             await asyncio.sleep(2)
 
@@ -81,8 +86,11 @@ class ApplicationAgent:
 
             # Capture screenshot evidence
             screenshot_file = str(self.screenshots_dir / f"job_{job.id}.png")
-            await page.screenshot(path=screenshot_file, full_page=False)
-            record.screenshot_path = screenshot_file
+            try:
+                await page.screenshot(path=screenshot_file, full_page=False)
+                record.screenshot_path = screenshot_file
+            except Exception as ss_err:
+                logger.debug(f"Screenshot capture skipped: {ss_err}")
 
             # Update database
             self.db.update_job_status(job.id, record.status)
@@ -98,13 +106,21 @@ class ApplicationAgent:
 
         except Exception as e:
             logger.error(f"Application failed for job {job.id}: {e}", exc_info=True)
-            record.status = ApplicationStatus.FAILED
+            record.status = ApplicationStatus.MANUAL_REVIEW
+            record.notes = f"Auto-fill paused ({e}). Review and complete manually via opened browser."
             record.error_message = str(e)
-            self.db.update_job_status(job.id, ApplicationStatus.FAILED)
+            self.db.update_job_status(job.id, ApplicationStatus.MANUAL_REVIEW)
             self.db.record_application(record)
 
         finally:
-            await page.close()
+            if auto_submit:
+                try:
+                    await page.close()
+                except Exception:
+                    pass
+                await self.session_mgr.close()
+            else:
+                logger.info("Review mode: browser session left open for manual inspection.")
 
         return record
 
