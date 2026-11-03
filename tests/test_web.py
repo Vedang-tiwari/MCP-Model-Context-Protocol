@@ -60,6 +60,25 @@ class TestWebDashboard(unittest.TestCase):
         self.assertIn("llm_model", data)
         self.assertIn("active_platforms_count", data)
 
+    def test_api_target_roles_crud(self):
+        # 1. GET target roles
+        get_resp = self.client.get("/api/target-roles")
+        self.assertEqual(get_resp.status_code, 200)
+        roles = get_resp.json()["target_roles"]
+        self.assertIsInstance(roles, list)
+
+        # 2. POST new target role
+        test_role = "Test Specialty AI Engineer"
+        add_resp = self.client.post("/api/target-roles", json={"role": test_role})
+        self.assertEqual(add_resp.status_code, 200)
+        self.assertIn(test_role, add_resp.json()["target_roles"])
+
+        # 3. DELETE target role
+        import urllib.parse
+        del_resp = self.client.delete(f"/api/target-roles/{urllib.parse.quote(test_role)}")
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertNotIn(test_role, del_resp.json()["target_roles"])
+
     def test_static_assets(self):
         css_resp = self.client.get("/static/styles.css")
         self.assertEqual(css_resp.status_code, 200)
