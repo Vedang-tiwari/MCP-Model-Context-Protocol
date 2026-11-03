@@ -347,6 +347,10 @@ async def api_trigger_scout(request: Request) -> JSONResponse:
         body = {}
 
     roles = body.get("roles")
+    if not roles:
+        profile_mgr.reload()
+        roles = profile_mgr.preferences.target_roles
+
     locations = body.get("locations")
     max_age_hours = body.get("max_age_hours", 24)
 
@@ -356,6 +360,51 @@ async def api_trigger_scout(request: Request) -> JSONResponse:
         max_age_hours=max_age_hours
     )
     return JSONResponse({"success": True, "summary": summary})
+
+
+async def api_get_target_roles(request: Request) -> JSONResponse:
+    """Retrieve active target role keywords."""
+    profile_mgr.reload()
+    return JSONResponse({
+        "success": True,
+        "target_roles": profile_mgr.preferences.target_roles
+    })
+
+
+async def api_add_target_role(request: Request) -> JSONResponse:
+    """Add a new target role keyword and persist it to search preferences."""
+    try:
+        body = await request.json()
+        role = body.get("role", "").strip()
+        if not role:
+            return JSONResponse({"error": "Role keyword cannot be empty."}, status_code=400)
+
+        added = profile_mgr.add_target_role(role)
+        return JSONResponse({
+            "success": True,
+            "added": added,
+            "message": f"Added target role '{role}'." if added else f"Role '{role}' already exists.",
+            "target_roles": profile_mgr.preferences.target_roles
+        })
+    except Exception as e:
+        logger.error(f"Error adding target role: {e}")
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_delete_target_role(request: Request) -> JSONResponse:
+    """Remove a target role keyword and persist changes to search preferences."""
+    import urllib.parse
+    raw_role = request.path_params.get("role_name", "")
+    decoded_role = urllib.parse.unquote(raw_role).strip()
+    if not decoded_role:
+        return JSONResponse({"error": "Invalid role specified."}, status_code=400)
+
+    removed = profile_mgr.remove_target_role(decoded_role)
+    return JSONResponse({
+        "success": removed,
+        "message": f"Target role '{decoded_role}' removed." if removed else f"Target role '{decoded_role}' not found.",
+        "target_roles": profile_mgr.preferences.target_roles
+    })
 
 
 async def api_system_info(request: Request) -> JSONResponse:
@@ -395,6 +444,9 @@ routes = [
     Route("/api/platforms", api_get_platforms, methods=["GET"]),
     Route("/api/platforms", api_add_platform, methods=["POST"]),
     Route("/api/platforms/{name}/toggle", api_toggle_platform, methods=["POST"]),
+    Route("/api/target-roles", api_get_target_roles, methods=["GET"]),
+    Route("/api/target-roles", api_add_target_role, methods=["POST"]),
+    Route("/api/target-roles/{role_name:path}", api_delete_target_role, methods=["DELETE"]),
     Route("/api/scout", api_trigger_scout, methods=["POST"]),
     Route("/api/system", api_system_info, methods=["GET"]),
     Mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
