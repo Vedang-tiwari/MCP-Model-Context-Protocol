@@ -52,6 +52,39 @@ class ProfileManager:
             json.dump(self.profile.model_dump(), f, indent=2)
         logger.info(f"Persisted candidate profile to {self.profile_path}")
 
+    def save_preferences(self):
+        """Persists the current SearchPreferences to search_preferences.json."""
+        with open(self.prefs_path, "w", encoding="utf-8") as f:
+            json.dump(self.preferences.model_dump(), f, indent=2)
+        logger.info(f"Persisted search preferences to {self.prefs_path}")
+
+    def add_target_role(self, role: str) -> bool:
+        """Adds a target role keyword and immediately persists to search preferences."""
+        cleaned = role.strip()
+        if not cleaned:
+            return False
+        # Avoid duplicate (case-insensitive check)
+        if any(r.strip().lower() == cleaned.lower() for r in self.preferences.target_roles):
+            return False
+        self.preferences.target_roles.append(cleaned)
+        self.save_preferences()
+        logger.info(f"Added new target role keyword: '{cleaned}'")
+        return True
+
+    def remove_target_role(self, role: str) -> bool:
+        """Removes a target role keyword and immediately persists to search preferences."""
+        target = role.strip().lower()
+        initial_len = len(self.preferences.target_roles)
+        self.preferences.target_roles = [
+            r for r in self.preferences.target_roles
+            if r.strip().lower() != target
+        ]
+        if len(self.preferences.target_roles) < initial_len:
+            self.save_preferences()
+            logger.info(f"Removed target role keyword: '{role}'")
+            return True
+        return False
+
     def add_role_resume(
         self,
         file_path: str,
