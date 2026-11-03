@@ -263,11 +263,14 @@ function renderJobsList(jobs) {
         </div>
 
         <div class="job-actions">
+          <a href="${escapeHtml(j.apply_url || j.url)}" target="_blank" rel="noopener noreferrer" class="button button-secondary button-sm" title="Open official job post in new browser tab">
+            Open ↗
+          </a>
           <button class="button button-secondary button-sm btn-inspect" data-id="${j.id}">
             Details
           </button>
-          <button class="button ${isApplied ? 'button-secondary' : 'button-primary'} button-sm btn-quick-apply" data-id="${j.id}" ${isApplied ? 'disabled' : ''}>
-            ${isApplied ? 'Applied' : 'Apply'}
+          <button class="button ${isApplied ? 'button-secondary' : 'button-primary'} button-sm btn-quick-apply" data-id="${j.id}" ${isApplied ? 'disabled' : ''} title="Run autonomous agent to pre-fill application & attach resume">
+            ${isApplied ? '✓ Applied' : '⚡ Auto-Apply'}
           </button>
         </div>
       </div>
@@ -304,7 +307,12 @@ async function openJobModal(jobId) {
     DOM.modalJobCompany.textContent = job.company;
     DOM.modalJobLocation.textContent = job.location || 'Remote';
     DOM.modalJobPlatform.textContent = job.platform;
-    DOM.modalJobLink.href = job.apply_url || job.url;
+    let targetLink = (job.apply_url || job.url || '').trim();
+    if (targetLink && !targetLink.startsWith('http')) {
+      targetLink = 'https://' + targetLink;
+    }
+    DOM.modalJobLink.href = targetLink || '#';
+    DOM.modalJobLink.setAttribute('href', targetLink || '#');
 
     // Salary package display
     if (job.salary) {
@@ -345,7 +353,8 @@ function closeJobModal() {
 // Apply & Evaluate Actions
 // -----------------------------------------------------------------------------
 async function triggerApply(jobId, autoSubmit = false) {
-  showToast(`Initiating stealth browser for job ${jobId}...`, 'info');
+  const modeText = autoSubmit ? 'Auto-Submit' : 'Pre-fill (Review Mode)';
+  showToast(`Initiating stealth browser agent (${modeText})...`, 'info');
   try {
     const res = await fetch(`/api/jobs/${jobId}/apply`, {
       method: 'POST',
@@ -354,14 +363,18 @@ async function triggerApply(jobId, autoSubmit = false) {
     });
     const result = await res.json();
     if (res.ok) {
-      showToast(`Status: ${result.status}. ${result.notes}`, result.status === 'APPLIED' ? 'success' : 'warning');
+      if (result.status === 'APPLIED') {
+        showToast(`🎉 Application auto-submitted! Screenshot saved.`, 'success');
+      } else {
+        showToast(`📋 Form pre-filled & resume attached! Check your opened browser window to review and submit.`, 'success');
+      }
       fetchJobs();
       fetchStats();
       if (state.activeJob && state.activeJob.id === jobId) {
         closeJobModal();
       }
     } else {
-      showToast(result.error || 'Application failed', 'error');
+      showToast(result.error || 'Application agent encountered an error', 'error');
     }
   } catch (err) {
     showToast('Failed to connect to application agent', 'error');
