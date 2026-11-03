@@ -495,6 +495,48 @@ button {
   border-color: rgba(248, 113, 113, 0.25);
 }
 
+/* Removable Target Keyword Chips */
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: all var(--transition-fast);
+}
+
+.keyword-chip:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-hover);
+}
+
+.keyword-chip .chip-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.keyword-chip .chip-remove-btn:hover {
+  color: var(--color-danger);
+  background: rgba(248, 113, 113, 0.15);
+}
+
 .score-pill {
   font-size: 11px;
   font-family: var(--font-mono);
