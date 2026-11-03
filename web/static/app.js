@@ -45,6 +45,9 @@ const DOM = {
   btnQuickScout: document.getElementById('btn-quick-scout'),
   btnRunScoutFull: document.getElementById('btn-run-scout-full'),
   scoutRolesDisplay: document.getElementById('scout-roles-display'),
+  scoutRolesCount: document.getElementById('scout-roles-count'),
+  inputNewScoutRole: document.getElementById('input-new-scout-role'),
+  btnAddScoutRole: document.getElementById('btn-add-scout-role'),
   scoutThresholdDisplay: document.getElementById('scout-threshold-display'),
   scoutAutoapplyBadge: document.getElementById('scout-autoapply-badge'),
   scoutProviderList: document.getElementById('scout-provider-list'),
@@ -408,14 +411,18 @@ async function triggerLiveScout() {
   DOM.btnRunScoutFull.disabled = true;
   DOM.btnQuickScout.querySelector('span:last-child').textContent = 'Scouting...';
   
-  appendScoutLog('[START] Triggering multi-platform discovery sweep across all enabled sources...');
+  const currentRoles = (state.preferences && state.preferences.target_roles) ? state.preferences.target_roles : [];
+  appendScoutLog(`[START] Multi-platform discovery sweep launched strictly for ${currentRoles.length} target keyword(s): [${currentRoles.join(', ')}]...`);
   showToast('Live discovery sweep launched...', 'info');
 
   try {
     const res = await fetch('/api/scout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ max_age_hours: 24 })
+      body: JSON.stringify({ 
+        roles: currentRoles,
+        max_age_hours: 24 
+      })
     });
     const data = await res.json();
 
@@ -444,6 +451,101 @@ function appendScoutLog(msg) {
   const time = new Date().toLocaleTimeString();
   DOM.scoutConsole.textContent += `\n[${time}] ${msg}`;
   DOM.scoutConsole.scrollTop = DOM.scoutConsole.scrollHeight;
+}
+
+function renderTargetRoles(roles) {
+  const targetRoles = roles || (state.preferences ? state.preferences.target_roles : []) || [];
+  if (DOM.scoutRolesCount) {
+    DOM.scoutRolesCount.textContent = `${targetRoles.length} keyword${targetRoles.length === 1 ? '' : 's'}`;
+  }
+  if (!DOM.scoutRolesDisplay) return;
+
+  if (targetRoles.length === 0) {
+    DOM.scoutRolesDisplay.innerHTML = `<span class="input-hint" style="font-size: 11px;">No target keywords configured. Add one below to restrict discovery.</span>`;
+    return;
+  }
+
+  DOM.scoutRolesDisplay.innerHTML = targetRoles.map(role => `
+    <span class="keyword-chip" data-role="${escapeHtml(role)}">
+      <span>${escapeHtml(role)}</span>
+      <button type="button" class="chip-remove-btn" data-role="${escapeHtml(role)}" title="Remove keyword">×</button>
+    </span>
+  `).join('');
+
+  DOM.scoutRolesDisplay.querySelectorAll('.chip-remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const roleToRemove = btn.getAttribute('data-role');
+      if (roleToRemove) {
+        removeTargetRoleKeyword(roleToRemove);
+      }
+    });
+  });
+}
+
+async function addTargetRoleKeyword(role) {
+  const cleanRole = (role || '').trim();
+  if (!cleanRole) {
+    showToast('Please enter a role keyword first', 'warning');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/target-roles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: cleanRole })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (state.preferences) {
+        state.preferences.target_roles = data.target_roles;
+      }
+      renderTargetRoles(data.target_roles);
+      if (DOM.prefsRoles) {
+        DOM.prefsRoles.value = data.target_roles.join('\n');
+      }
+      if (DOM.inputNewScoutRole) {
+        DOM.inputNewScoutRole.value = '';
+      }
+      if (data.added) {
+        showToast(`Target keyword "${cleanRole}" added!`, 'success');
+        appendScoutLog(`[CONFIG] Added target keyword: "${cleanRole}". Discovery will filter strictly by this keyword.`);
+      } else {
+        showToast(`Keyword "${cleanRole}" already exists.`, 'info');
+      }
+    } else {
+      showToast(data.error || 'Failed to add keyword', 'error');
+    }
+  } catch (err) {
+    console.error('Error adding role:', err);
+    showToast('Failed to add target keyword', 'error');
+  }
+}
+
+async function removeTargetRoleKeyword(role) {
+  try {
+    const res = await fetch(`/api/target-roles/${encodeURIComponent(role)}`, {
+      method: 'DELETE'
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      if (state.preferences) {
+        state.preferences.target_roles = data.target_roles;
+      }
+      renderTargetRoles(data.target_roles);
+      if (DOM.prefsRoles) {
+        DOM.prefsRoles.value = data.target_roles.join('\n');
+      }
+      showToast(`Removed keyword "${role}"`, 'info');
+      appendScoutLog(`[CONFIG] Removed target keyword: "${role}".`);
+    } else {
+      showToast(data.error || 'Failed to remove keyword', 'error');
+    }
+  } catch (err) {
+    console.error('Error removing role:', err);
+    showToast('Failed to remove keyword', 'error');
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -482,12 +584,8 @@ async function fetchProfile() {
     DOM.prefsAutoapply.checked = Boolean(prefs.auto_apply);
     DOM.prefsRemoteonly.checked = Boolean(prefs.remote_only);
 
-    // Update scout view tags
-    if (DOM.scoutRolesDisplay) {
-      DOM.scoutRolesDisplay.innerHTML = (prefs.target_roles || []).map(r => `
-        <span class="badge">${escapeHtml(r)}</span>
-      `).join('');
-    }
+    // Update scout view tags & keyword manager
+    renderTargetRoles(prefs.target_roles);
   } catch (err) {
     console.error('Failed to load profile:', err);
   }
@@ -900,6 +998,19 @@ function initEventListeners() {
   // Scout Triggers
   DOM.btnQuickScout.addEventListener('click', triggerLiveScout);
   DOM.btnRunScoutFull.addEventListener('click', triggerLiveScout);
+
+  // Target Role Keyword Events
+  if (DOM.btnAddScoutRole && DOM.inputNewScoutRole) {
+    DOM.btnAddScoutRole.addEventListener('click', () => {
+      addTargetRoleKeyword(DOM.inputNewScoutRole.value);
+    });
+    DOM.inputNewScoutRole.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addTargetRoleKeyword(DOM.inputNewScoutRole.value);
+      }
+    });
+  }
 
   // Resume Matrix Events
   if (DOM.resumeFileInput) {
