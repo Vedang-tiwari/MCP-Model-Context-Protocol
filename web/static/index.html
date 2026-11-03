@@ -571,12 +571,16 @@
       </div>
 
       <div class="modal-footer">
-        <a href="#" target="_blank" rel="noopener noreferrer" class="button button-secondary button-sm" id="modal-job-link">
-          Open Listing ↗
+        <a href="#" target="_blank" rel="noopener noreferrer" class="button button-secondary button-sm" id="modal-job-link" title="Open the official job application in a new browser tab">
+          Open Official Posting ↗
         </a>
         <div style="display: flex; gap: var(--space-2);">
-          <button class="button button-secondary" id="btn-apply-review">Pre-fill (Review Mode)</button>
-          <button class="button button-primary" id="btn-apply-submit">Apply (Auto-Submit)</button>
+          <button class="button button-secondary button-sm" id="btn-apply-review" title="Launch stealth browser, fill candidate details and keep open for review">
+            ⚡ Pre-fill (Review Mode)
+          </button>
+          <button class="button button-primary button-sm" id="btn-apply-submit" title="Launch stealth browser, fill details and auto-submit">
+            🚀 Auto-Submit
+          </button>
         </div>
       </div>
     </div>
