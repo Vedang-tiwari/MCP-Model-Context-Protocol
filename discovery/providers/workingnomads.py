@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
 from core.salary_parser import normalize_salary
+from core.role_matcher import matches_target_roles
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,6 @@ class WorkingNomadsProvider(BaseJobProvider):
         max_age_hours: int = 24
     ) -> List[JobListing]:
         results: List[JobListing] = []
-        role_tokens = set()
-        for r in roles:
-            for token in r.lower().split():
-                if len(token) > 2:
-                    role_tokens.add(token)
         tech_anchors = {"engineer", "developer", "backend", "frontend", "fullstack", "software", "python", "devops", "cloud", "data", "ai", "ml"}
 
         try:
@@ -57,11 +53,15 @@ class WorkingNomadsProvider(BaseJobProvider):
 
                     title_lower = title.lower()
                     category = (item.get("category_name") or "").lower()
-                    has_role_match = any(tok in title_lower for tok in role_tokens)
-                    has_tech_match = any(a in title_lower or a in category for a in tech_anchors)
 
-                    if not (has_role_match or has_tech_match):
-                        continue
+                    # Match roles strictly when configured
+                    if roles:
+                        if not matches_target_roles(title, roles, tags=[category]):
+                            continue
+                    else:
+                        has_tech_match = any(a in title_lower or a in category for a in tech_anchors)
+                        if not has_tech_match:
+                            continue
 
                     raw_sal = item.get("salary") or item.get("compensation")
                     salary = normalize_salary(
