@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
 from core.salary_parser import normalize_salary
+from core.role_matcher import matches_target_roles
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +59,14 @@ class ArbeitnowProvider(BaseJobProvider):
                     title_lower = title.lower()
                     tags = [t.lower() for t in item.get("tags", [])]
 
-                    # Match roles
-                    has_role_match = any(token in title_lower for token in role_tokens)
-                    has_tech_match = any(a in title_lower for a in tech_anchors) or any(a in tags for a in tech_anchors)
-
-                    if not (has_role_match or has_tech_match):
-                        continue
+                    # Match roles strictly when configured
+                    if roles:
+                        if not matches_target_roles(title, roles, tags=tags):
+                            continue
+                    else:
+                        has_tech_match = any(a in title_lower for a in tech_anchors) or any(a in tags for a in tech_anchors)
+                        if not has_tech_match:
+                            continue
 
                     location = "Remote" if item.get("remote") else (item.get("location") or "Hybrid/Remote")
                     desc = item.get("description", "")
