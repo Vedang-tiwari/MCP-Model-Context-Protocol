@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from discovery.base import BaseJobProvider
 from core.models import JobListing, ApplicationStatus
 from core.salary_parser import normalize_salary
+from core.role_matcher import matches_target_roles
 
 logger = logging.getLogger(__name__)
 
@@ -177,29 +178,14 @@ class ATSDirectProvider(BaseJobProvider):
         return matched
 
     def _matches_roles(self, title: str, roles: List[str]) -> bool:
-        t = title.lower().replace("-", " ")
+        if roles:
+            return matches_target_roles(title, roles)
 
-        for role in roles:
-            # Token match with developer/engineer equivalence
-            tokens = [tok for tok in role.lower().split() if len(tok) > 2]
-            if all(tok in t for tok in tokens):
-                return True
-
-            equiv_tokens = set(tokens)
-            if "developer" in equiv_tokens:
-                equiv_tokens.discard("developer")
-                equiv_tokens.add("engineer")
-            elif "engineer" in equiv_tokens:
-                equiv_tokens.discard("engineer")
-                equiv_tokens.add("developer")
-
-            if all(tok in t for tok in equiv_tokens):
-                return True
-
-        # General tech stems matching
+        # Fallback only when no specific roles are configured
         tech_stems = [
             "software engineer", "frontend", "backend", "full stack",
             "fullstack", "devops", "platform engineer", "data engineer",
             "machine learning", "ai engineer", "systems engineer"
         ]
+        t = title.lower().replace("-", " ")
         return any(stem in t for stem in tech_stems)
