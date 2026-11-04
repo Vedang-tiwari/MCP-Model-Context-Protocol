@@ -4,7 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from playwright.async_api import Page
 
 from core.models import JobListing, ApplicationStatus, ApplicationRecord
@@ -32,97 +32,102 @@ class ApplicationAgent:
         self.solver = ScreeningQuestionSolver(profile_mgr)
         self.screenshots_dir = Path("data/screenshots")
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
+        self._apply_lock = asyncio.Lock()
 
     async def apply(self, job: JobListing, auto_submit: bool = False) -> ApplicationRecord:
         """
         Executes the automated application workflow for a given job.
         If auto_submit is False, fills out the form and stops at the final review step for user verification.
         """
-        logger.info(f"Initiating application workflow for '{job.title}' at '{job.company}' ({job.url})")
-        self.db.update_job_status(job.id, ApplicationStatus.APPLYING)
+        async with self._apply_lock:
+            logger.info(f"Initiating application workflow for '{job.title}' at '{job.company}' ({job.url})")
+            self.db.update_job_status(job.id, ApplicationStatus.APPLYING)
 
-        context = await self.session_mgr.start()
-        # Reuse existing page from persistent context to prevent an orphaned 'about:blank' tab
-        page = context.pages[0] if context.pages else await context.new_page()
+            record = ApplicationRecord(
+                job_id=job.id,
+                status=ApplicationStatus.APPLYING,
+                applied_at=None,
+                attempts=1,
+                answers_submitted={}
+            )
 
-        record = ApplicationRecord(
-            job_id=job.id,
-            status=ApplicationStatus.APPLYING,
-            applied_at=None,
-            attempts=1,
-            answers_submitted={}
-        )
-
-        try:
-            # Navigate to application URL
+            page: Optional[Page] = None
             target_url = job.apply_url or job.url
             if target_url and not target_url.startswith("http"):
                 target_url = f"https://{target_url}"
 
-            logger.info(f"Navigating stealth browser to: {target_url}")
-            await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
-            await asyncio.sleep(2)
-
-            # Check for bot detection / CAPTCHA
-            if await self._detect_captcha(page):
-                await self.hitl.notify_human_action_required(
-                    reason="CAPTCHA or Bot Detection encountered",
-                    job_title=job.title,
-                    company=job.company,
-                    url=target_url
-                )
-                # Wait 60 seconds for manual resolution
-                await asyncio.sleep(60)
-
-            # Determine application flow based on platform / ATS
-            if "greenhouse.io" in target_url or job.metadata.get("ats_type") == "greenhouse":
-                record = await self._fill_greenhouse(page, job, auto_submit)
-            elif "lever.co" in target_url or job.metadata.get("ats_type") == "lever":
-                record = await self._fill_lever(page, job, auto_submit)
-            elif "linkedin.com" in target_url:
-                record = await self._fill_linkedin_easy_apply(page, job, auto_submit)
-            else:
-                record = await self._fill_generic_form(page, job, auto_submit)
-
-            # Capture screenshot evidence
-            screenshot_file = str(self.screenshots_dir / f"job_{job.id}.png")
             try:
-                await page.screenshot(path=screenshot_file, full_page=False)
-                record.screenshot_path = screenshot_file
-            except Exception as ss_err:
-                logger.debug(f"Screenshot capture skipped: {ss_err}")
+                context = await self.session_mgr.start()
+                # Reuse existing page from persistent context to prevent an orphaned 'about:blank' tab
+                page = context.pages[0] if context.pages else await context.new_page()
 
-            # Update database
-            self.db.update_job_status(job.id, record.status)
-            self.db.record_application(record)
+                logger.info(f"Navigating stealth browser to: {target_url}")
+                await page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
+                await asyncio.sleep(2)
 
-            if record.status == ApplicationStatus.APPLIED:
-                await self.hitl.notify_application_submitted(
-                    job_title=job.title,
-                    company=job.company,
-                    url=target_url,
-                    screenshot_path=screenshot_file
-                )
+                # Check for bot detection / CAPTCHA
+                if await self._detect_captcha(page):
+                    await self.hitl.notify_human_action_required(
+                        reason="CAPTCHA or Bot Detection encountered",
+                        job_title=job.title,
+                        company=job.company,
+                        url=target_url
+                    )
+                    record.status = ApplicationStatus.MANUAL_REVIEW
+                    record.notes = "Security verification / CAPTCHA detected. Complete verification in the opened browser window."
+                    self.db.update_job_status(job.id, ApplicationStatus.MANUAL_REVIEW)
+                    self.db.record_application(record)
+                    return record
 
-        except Exception as e:
-            logger.error(f"Application failed for job {job.id}: {e}", exc_info=True)
-            record.status = ApplicationStatus.MANUAL_REVIEW
-            record.notes = f"Auto-fill paused ({e}). Review and complete manually via opened browser."
-            record.error_message = str(e)
-            self.db.update_job_status(job.id, ApplicationStatus.MANUAL_REVIEW)
-            self.db.record_application(record)
+                # Determine application flow based on platform / ATS
+                if "greenhouse.io" in target_url or job.metadata.get("ats_type") == "greenhouse":
+                    record = await self._fill_greenhouse(page, job, auto_submit)
+                elif "lever.co" in target_url or job.metadata.get("ats_type") == "lever":
+                    record = await self._fill_lever(page, job, auto_submit)
+                elif "linkedin.com" in target_url:
+                    record = await self._fill_linkedin_easy_apply(page, job, auto_submit)
+                else:
+                    record = await self._fill_generic_form(page, job, auto_submit)
 
-        finally:
-            if auto_submit:
+                # Capture screenshot evidence
+                screenshot_file = str(self.screenshots_dir / f"job_{job.id}.png")
                 try:
-                    await page.close()
-                except Exception:
-                    pass
-                await self.session_mgr.close()
-            else:
-                logger.info("Review mode: browser session left open for manual inspection.")
+                    await page.screenshot(path=screenshot_file, full_page=False)
+                    record.screenshot_path = screenshot_file
+                except Exception as ss_err:
+                    logger.debug(f"Screenshot capture skipped: {ss_err}")
 
-        return record
+                # Update database
+                self.db.update_job_status(job.id, record.status)
+                self.db.record_application(record)
+
+                if record.status == ApplicationStatus.APPLIED:
+                    await self.hitl.notify_application_submitted(
+                        job_title=job.title,
+                        company=job.company,
+                        url=target_url,
+                        screenshot_path=screenshot_file
+                    )
+
+            except Exception as e:
+                logger.error(f"Application failed for job {job.id}: {e}", exc_info=True)
+                record.status = ApplicationStatus.MANUAL_REVIEW
+                record.notes = f"Auto-fill paused ({e}). Review and complete manually via opened browser."
+                record.error_message = str(e)
+                self.db.update_job_status(job.id, ApplicationStatus.MANUAL_REVIEW)
+                self.db.record_application(record)
+
+            finally:
+                if auto_submit and page:
+                    try:
+                        await page.close()
+                    except Exception:
+                        pass
+                    await self.session_mgr.close()
+                else:
+                    logger.info("Review mode: browser session left open for manual inspection.")
+
+            return record
 
     async def _detect_captcha(self, page: Page) -> bool:
         """Checks for common CAPTCHA / bot challenge indicators on page."""
@@ -135,7 +140,8 @@ class ApplicationAgent:
             "#captcha"
         ]
         for sel in captcha_selectors:
-            if await page.query_selector(sel):
+            el = await page.query_selector(sel)
+            if el and await el.is_visible():
                 return True
         return False
 
