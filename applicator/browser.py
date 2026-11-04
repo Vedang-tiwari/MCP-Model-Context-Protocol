@@ -22,13 +22,18 @@ class BrowserSessionManager:
         """Launches a persistent browser session with stealth evasion scripts."""
         if self.context:
             try:
-                # If existing context is still alive and responsive, reuse it
-                if self.context.pages is not None:
-                    return self.context
+                # If existing context is still alive, open, and responsive, reuse it
+                if not self.context.is_closed():
+                    if self.context.browser is None or self.context.browser.is_connected():
+                        _ = self.context.pages
+                        return self.context
             except Exception:
-                await self.close()
+                pass
+            # Context is closed or unresponsive; clean up prior session before respawn
+            await self.close()
 
-        self.playwright = await async_playwright().start()
+        if not self.playwright:
+            self.playwright = await async_playwright().start()
 
         # Launch persistent context to preserve logged-in cookies and sessions
         self.context = await self.playwright.chromium.launch_persistent_context(
