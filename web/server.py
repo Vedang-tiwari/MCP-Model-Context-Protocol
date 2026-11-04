@@ -179,14 +179,21 @@ async def api_apply_job(request: Request) -> JSONResponse:
         body = {}
 
     auto_submit = bool(body.get("auto_submit", False))
-    record = await agent.apply(job, auto_submit=auto_submit)
-
-    return JSONResponse({
-        "job_id": job.id,
-        "status": record.status.value,
-        "screenshot_path": record.screenshot_path,
-        "notes": record.notes or record.error_message or "Application processed."
-    })
+    try:
+        record = await agent.apply(job, auto_submit=auto_submit)
+        return JSONResponse({
+            "job_id": job.id,
+            "status": record.status.value,
+            "screenshot_path": record.screenshot_path,
+            "notes": record.notes or record.error_message or "Application processed."
+        })
+    except Exception as e:
+        logger.error(f"Error applying to job {job_id}: {e}", exc_info=True)
+        return JSONResponse({
+            "error": f"Application agent error: {str(e)}",
+            "job_id": job.id,
+            "status": "FAILED"
+        }, status_code=500)
 
 
 async def api_get_profile(request: Request) -> JSONResponse:
