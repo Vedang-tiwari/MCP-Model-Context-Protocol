@@ -358,13 +358,27 @@ function closeJobModal() {
 async function triggerApply(jobId, autoSubmit = false) {
   const modeText = autoSubmit ? 'Auto-Submit' : 'Pre-fill (Review Mode)';
   showToast(`Initiating stealth browser agent (${modeText})...`, 'info');
+
+  // Disable button to prevent duplicate triggers
+  const applyBtns = document.querySelectorAll(`.btn-quick-apply[data-id="${jobId}"], #btn-apply-review, #btn-apply-submit`);
+  applyBtns.forEach(b => {
+    b.disabled = true;
+    if (b.classList.contains('btn-quick-apply')) b.textContent = '⏳ Applying...';
+  });
+
   try {
     const res = await fetch(`/api/jobs/${jobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ auto_submit: autoSubmit })
     });
-    const result = await res.json();
+    let result = {};
+    try {
+      result = await res.json();
+    } catch (_) {
+      result = {};
+    }
+
     if (res.ok) {
       if (result.status === 'APPLIED') {
         showToast(`🎉 Application auto-submitted! Screenshot saved.`, 'success');
@@ -377,10 +391,18 @@ async function triggerApply(jobId, autoSubmit = false) {
         closeJobModal();
       }
     } else {
-      showToast(result.error || 'Application agent encountered an error', 'error');
+      showToast(result.error || `Application agent error (${res.status})`, 'error');
+      fetchJobs();
+      fetchStats();
     }
   } catch (err) {
-    showToast('Failed to connect to application agent', 'error');
+    console.error('Application error:', err);
+    showToast(`Failed to connect to application agent: ${err.message || 'Server unreachable'}`, 'error');
+  } finally {
+    applyBtns.forEach(b => {
+      b.disabled = false;
+      if (b.classList.contains('btn-quick-apply')) b.textContent = '⚡ Auto-Apply';
+    });
   }
 }
 
