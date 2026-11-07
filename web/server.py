@@ -196,6 +196,57 @@ async def api_apply_job(request: Request) -> JSONResponse:
         }, status_code=500)
 
 
+async def api_batch_apply_jobs(request: Request) -> JSONResponse:
+    """Execute autonomous batch applications simultaneously across multiple jobs."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    job_ids = body.get("job_ids", [])
+    auto_submit = bool(body.get("auto_submit", True))
+    max_concurrency = int(body.get("max_concurrency", 3))
+
+    jobs_to_apply = []
+    if job_ids:
+        for jid in job_ids:
+            j = db.get_job(jid)
+            if j:
+                jobs_to_apply.append(j)
+    else:
+        all_jobs = db.list_jobs(limit=50)
+        jobs_to_apply = [j for j in all_jobs if j.status in (ApplicationStatus.DISCOVERED, ApplicationStatus.EVALUATED, ApplicationStatus.QUEUED, ApplicationStatus.MANUAL_REVIEW)]
+
+    if not jobs_to_apply:
+        return JSONResponse({"error": "No eligible jobs found to apply.", "total": 0}, status_code=400)
+
+    try:
+        results = await agent.batch_apply(jobs_to_apply, auto_submit=auto_submit, max_concurrency=max_concurrency)
+        applied_count = sum(1 for r in results if r.status == ApplicationStatus.APPLIED)
+        review_count = sum(1 for r in results if r.status == ApplicationStatus.MANUAL_REVIEW)
+        failed_count = sum(1 for r in results if r.status == ApplicationStatus.FAILED)
+
+        return JSONResponse({
+            "success": True,
+            "total": len(results),
+            "applied": applied_count,
+            "manual_review": review_count,
+            "failed": failed_count,
+            "results": [
+                {
+                    "job_id": r.job_id,
+                    "status": r.status.value,
+                    "notes": r.notes or r.error_message,
+                    "screenshot_path": r.screenshot_path
+                }
+                for r in results
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Batch application error: {e}", exc_info=True)
+        return JSONResponse({"error": f"Batch application failed: {str(e)}"}, status_code=500)
+
+
 async def api_get_profile(request: Request) -> JSONResponse:
     """Retrieve candidate profile and search preferences."""
     profile_mgr.reload()
@@ -442,6 +493,7 @@ routes = [
     Route("/api/jobs/{job_id}", api_get_job, methods=["GET"]),
     Route("/api/jobs/{job_id}/evaluate", api_evaluate_job, methods=["POST"]),
     Route("/api/jobs/{job_id}/apply", api_apply_job, methods=["POST"]),
+    Route("/api/jobs/batch-apply", api_batch_apply_jobs, methods=["POST"]),
     Route("/api/profile", api_get_profile, methods=["GET"]),
     Route("/api/profile", api_save_profile, methods=["POST"]),
     Route("/api/resumes", api_get_resumes, methods=["GET"]),
