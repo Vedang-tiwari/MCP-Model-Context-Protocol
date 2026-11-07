@@ -173,6 +173,43 @@
         </select>
 
         <button class="button button-secondary button-sm" id="btn-reset-filters">Reset</button>
+
+        <div style="display: flex; gap: 8px; margin-left: auto; align-items: center;">
+          <button 
+            class="button button-primary button-sm" 
+            id="btn-batch-apply-submit" 
+            title="Autonomously apply and submit to all filtered jobs simultaneously across platforms"
+            style="font-weight: 600; white-space: nowrap;"
+          >
+            ⚡ Auto-Apply Filtered (<span id="batch-apply-count">0</span>)
+          </button>
+          <button 
+            class="button button-secondary button-sm" 
+            id="btn-batch-apply-review" 
+            title="Pre-fill all filtered applications simultaneously and leave browser tabs open for manual review"
+            style="white-space: nowrap;"
+          >
+            📋 Pre-fill Filtered
+          </button>
+        </div>
+      </div>
+
+      <!-- Batch Application Progress Panel -->
+      <div id="batch-progress-card" class="panel" style="display: none; margin-bottom: var(--space-4); border-color: rgba(74, 222, 128, 0.4); background: rgba(74, 222, 128, 0.04);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-success" style="font-size: 10px;">AUTONOMOUS AGENT ACTIVE</span>
+            <span style="font-weight: 600; font-size: 13px;" id="batch-progress-title">Applying simultaneously across platforms...</span>
+          </div>
+          <span class="badge" id="batch-progress-stats">0 / 0 Completed</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: var(--color-surface-inset); border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+          <div id="batch-progress-bar" style="width: 0%; height: 100%; background: var(--color-success); transition: width 0.3s ease;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-subtle);">
+          <span id="batch-progress-detail">Opening parallel stealth browser tabs and matching resumes...</span>
+          <span id="batch-progress-counts">0 Applied | 0 Review | 0 Failed</span>
+        </div>
       </div>
 
       <!-- Job List Container -->
