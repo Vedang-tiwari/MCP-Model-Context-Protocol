@@ -36,19 +36,37 @@ class BrowserSessionManager:
             self.playwright = await async_playwright().start()
 
         # Launch persistent context to preserve logged-in cookies and sessions
-        self.context = await self.playwright.chromium.launch_persistent_context(
-            user_data_dir=self.user_data_dir,
-            headless=self.headless,
-            user_agent=settings.USER_AGENT,
-            viewport={"width": 1366, "height": 768},
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-infobars",
-                "--disable-dev-shm-usage",
-                "--disable-extensions"
-            ]
-        )
+        try:
+            self.context = await self.playwright.chromium.launch_persistent_context(
+                user_data_dir=self.user_data_dir,
+                headless=self.headless,
+                user_agent=settings.USER_AGENT,
+                viewport={"width": 1366, "height": 768},
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-infobars",
+                    "--disable-dev-shm-usage",
+                    "--disable-extensions"
+                ]
+            )
+        except Exception as e:
+            logger.warning(f"Browser launch failed with primary profile ({e}), resetting session...")
+            await self.close()
+            self.playwright = await async_playwright().start()
+            self.context = await self.playwright.chromium.launch_persistent_context(
+                user_data_dir=self.user_data_dir,
+                headless=self.headless,
+                user_agent=settings.USER_AGENT,
+                viewport={"width": 1366, "height": 768},
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                    "--disable-infobars",
+                    "--disable-dev-shm-usage",
+                    "--disable-extensions"
+                ]
+            )
 
         # Inject stealth scripts into all new pages
         await self.context.add_init_script("""
@@ -73,6 +91,17 @@ class BrowserSessionManager:
 
         logger.info(f"Stealth browser launched (Headless={self.headless}, UserData={self.user_data_dir})")
         return self.context
+
+    async def new_tab(self) -> Page:
+        """Acquires a tab in the persistent browser, reusing a blank tab if available."""
+        context = await self.start()
+        for p in context.pages:
+            try:
+                if not p.is_closed() and (p.url == "about:blank" or not p.url):
+                    return p
+            except Exception:
+                pass
+        return await context.new_page()
 
     async def human_type(self, page: Page, selector: str, text: str):
         """Types text with natural human variance in keystroke timing (40ms - 120ms)."""
