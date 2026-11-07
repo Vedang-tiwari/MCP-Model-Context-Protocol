@@ -88,6 +88,35 @@ class TestWebDashboard(unittest.TestCase):
         self.assertEqual(js_resp.status_code, 200)
         self.assertIn("initApp", js_resp.text)
 
+    def test_api_batch_apply_validation(self):
+        # Test batch apply with empty/non-existent IDs
+        resp = self.client.post("/api/jobs/batch-apply", json={"job_ids": ["non_existent_id_999"]})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("error", resp.json())
+
+    def test_api_batch_apply_mocked_success(self):
+        from unittest.mock import AsyncMock, patch
+        from core.models import ApplicationRecord, ApplicationStatus, JobListing
+
+        mock_rec = ApplicationRecord(
+            job_id="mock_job_1",
+            status=ApplicationStatus.APPLIED,
+            notes="Submitted successfully"
+        )
+        with patch("web.server.agent.batch_apply", new_callable=AsyncMock) as mock_batch:
+            mock_batch.return_value = [mock_rec]
+            with patch("web.server.db.get_job") as mock_get_job:
+                mock_get_job.return_value = JobListing(
+                    id="mock_job_1", platform="lever", title="SWE", company="Acme", url="https://jobs.lever.co/acme/1"
+                )
+                resp = self.client.post("/api/jobs/batch-apply", json={"job_ids": ["mock_job_1"], "auto_submit": True})
+                self.assertEqual(resp.status_code, 200)
+                data = resp.json()
+                self.assertTrue(data["success"])
+                self.assertEqual(data["total"], 1)
+                self.assertEqual(data["applied"], 1)
+                self.assertEqual(data["results"][0]["status"], "APPLIED")
+
 
 if __name__ == "__main__":
     unittest.main()
