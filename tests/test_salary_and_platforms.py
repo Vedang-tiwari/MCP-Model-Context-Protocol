@@ -91,6 +91,57 @@ class TestSalaryAndPlatforms(unittest.TestCase):
                 f"Platform '{p}' should be registered in PlatformRegistry"
             )
 
+        new_8_platforms = [
+            "hirist",
+            "sprout",
+            "devfolio",
+            "beep",
+            "ai-job.net",
+            "icrunchdata",
+            "mljobsinfo",
+            "aijobsai"
+        ]
+        for p in new_8_platforms:
+            self.assertIn(
+                p,
+                available_platforms,
+                f"Newly added platform '{p}' should be registered in PlatformRegistry"
+            )
+
+    def test_new_platforms_fetch_and_salary(self):
+        import asyncio
+        from discovery.providers import (
+            HiristProvider,
+            DevfolioProvider,
+            AIJobNetProvider,
+            BeepAIProvider,
+            SproutProvider,
+            ICrunchDataProvider,
+            MLJobsInfoProvider,
+            AIJobsAIProvider
+        )
+
+        providers = [
+            HiristProvider(),
+            DevfolioProvider(),
+            AIJobNetProvider(),
+            BeepAIProvider(),
+            SproutProvider(),
+            ICrunchDataProvider(),
+            MLJobsInfoProvider(),
+            AIJobsAIProvider()
+        ]
+
+        async def _test_providers():
+            for prov in providers:
+                jobs = await prov.fetch_recent_jobs(roles=["AI Engineer", "Software Engineer"], locations=["Remote"])
+                self.assertGreater(len(jobs), 0, f"Provider {prov.name} should return jobs")
+                for j in jobs:
+                    self.assertIsNotNone(j.salary, f"Job {j.id} from {prov.name} must have a normalized salary")
+                    self.assertGreater(len(j.salary), 0)
+
+        asyncio.run(_test_providers())
+
     def test_database_salary_persistence(self):
         job = JobListing(
             id="test_sal_job_1",
