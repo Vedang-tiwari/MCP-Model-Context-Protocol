@@ -13,6 +13,24 @@ ENV/
 .env
 !.env.example
 
+# Candidate private profiles, commands & sensitive data
+commands.txt
+COMMANDS.txt
+candidate_profile.json
+config/candidate_profile.json
+!config/candidate_profile.example.json
+
+# Candidate resumes
+resume_swe.pdf
+resume_fde.docx
+data/resumes/resume_swe.pdf
+data/resumes/resume_fde.docx
+*.pdf
+*.docx
+!config/resume.pdf
+!data/resumes/resume_ai_engineer.pdf
+!data/resumes/resume_fde.pdf
+
 # Local databases and browser profile sessions
 data/*.db
 data/test_jobs.db
