@@ -17,6 +17,14 @@ from .devto import DevToProvider
 from .crossover import CrossoverProvider
 from .cutshort import CutshortProvider
 from .foundit import FounditProvider
+from .hirist import HiristProvider
+from .devfolio import DevfolioProvider
+from .aijobnet import AIJobNetProvider
+from .beepai import BeepAIProvider
+from .sprout import SproutProvider
+from .icrunchdata import ICrunchDataProvider
+from .mljobsinfo import MLJobsInfoProvider
+from .aijobsai import AIJobsAIProvider
 
 __all__ = [
     "LinkedInProvider",
@@ -37,4 +45,12 @@ __all__ = [
     "CrossoverProvider",
     "CutshortProvider",
     "FounditProvider",
+    "HiristProvider",
+    "DevfolioProvider",
+    "AIJobNetProvider",
+    "BeepAIProvider",
+    "SproutProvider",
+    "ICrunchDataProvider",
+    "MLJobsInfoProvider",
+    "AIJobsAIProvider",
 ]
