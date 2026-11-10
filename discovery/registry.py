@@ -28,7 +28,15 @@ from discovery.providers import (
     DevToProvider,
     CrossoverProvider,
     CutshortProvider,
-    FounditProvider
+    FounditProvider,
+    HiristProvider,
+    DevfolioProvider,
+    AIJobNetProvider,
+    BeepAIProvider,
+    SproutProvider,
+    ICrunchDataProvider,
+    MLJobsInfoProvider,
+    AIJobsAIProvider
 )
 from discovery.providers.custom_dynamic import CustomPlatformProvider
 
@@ -104,6 +112,18 @@ class PlatformRegistry:
         self.providers["cutshort"] = CutshortProvider()
         self.providers["cutshot"] = CutshortProvider()
         self.providers["foundit"] = FounditProvider()
+        self.providers["hirist"] = HiristProvider()
+        self.providers["devfolio"] = DevfolioProvider()
+        self.providers["ai-job.net"] = AIJobNetProvider()
+        self.providers["aijobnet"] = AIJobNetProvider()
+        self.providers["beep"] = BeepAIProvider()
+        self.providers["beep_ai"] = BeepAIProvider()
+        self.providers["sprout"] = SproutProvider()
+        self.providers["icrunchdata"] = ICrunchDataProvider()
+        self.providers["mljobsinfo"] = MLJobsInfoProvider()
+        self.providers["ml-jobs.info"] = MLJobsInfoProvider()
+        self.providers["aijobsai"] = AIJobsAIProvider()
+        self.providers["aijobs.ai"] = AIJobsAIProvider()
 
         # 2. Load Custom Platforms from JSON
         if self.custom_platforms_path.exists():
@@ -210,7 +230,15 @@ class PlatformRegistry:
             ("devto", "Dev.to Developer Jobs"),
             ("crossover", "Crossover Elite Remote ($100k-$400k)"),
             ("cutshort", "Cutshort Indian Tech Startups (LPA)"),
-            ("foundit", "Foundit / Monster APAC (LPA)")
+            ("foundit", "Foundit / Monster APAC (LPA)"),
+            ("hirist", "Hirist Tech Careers (India LPA)"),
+            ("sprout", "Sprout Tech & Remote Careers"),
+            ("devfolio", "Devfolio Web3 & Builder Careers"),
+            ("beep", "Beep: AI Career Platform"),
+            ("ai-job.net", "AI-Jobs.net (AI / ML / Data)"),
+            ("icrunchdata", "iCrunchData (Data Science & AI)"),
+            ("mljobsinfo", "ML Jobs Info (Machine Learning)"),
+            ("aijobsai", "AI Jobs.ai (Generative AI)")
         ]
         for slug, label in builtins:
             output.append({
