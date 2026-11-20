@@ -373,58 +373,104 @@ function closeJobModal() {
 }
 
 // -----------------------------------------------------------------------------
-// Apply & Evaluate Actions
+// Apply & Evaluate Actions (with Live Progress Polling)
 // -----------------------------------------------------------------------------
 async function triggerApply(jobId, autoSubmit = true) {
   const modeText = autoSubmit ? 'Auto-Submit' : 'Pre-fill (Review Mode)';
   showToast(`Initiating stealth browser agent (${modeText})...`, 'info');
 
-  // Disable button to prevent duplicate triggers
   const applyBtns = document.querySelectorAll(`.btn-quick-apply[data-id="${jobId}"], #btn-apply-review, #btn-apply-submit`);
   applyBtns.forEach(b => {
     b.disabled = true;
-    if (b.classList.contains('btn-quick-apply')) b.textContent = '⏳ Applying...';
+    if (b.classList.contains('btn-quick-apply')) b.textContent = '⏳ Starting...';
   });
 
   try {
     const res = await fetch(`/api/jobs/${jobId}/apply`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ auto_submit: autoSubmit })
+      body: JSON.stringify({ auto_submit: autoSubmit, async: true })
     });
-    let result = {};
+    let initData = {};
     try {
-      result = await res.json();
+      initData = await res.json();
     } catch (_) {
-      result = {};
+      initData = {};
     }
 
-    if (res.ok) {
-      if (result.status === 'APPLIED') {
-        showToast(`🎉 Application auto-submitted! Proof screenshot captured.`, 'success');
-      } else if (result.status === 'MANUAL_REVIEW') {
-        if (result.notes && (result.notes.includes('pre-filled') || result.notes.includes('fields filled'))) {
-          showToast(`📋 Form pre-filled & resume attached! Review and submit in the opened browser tab.`, 'success');
-        } else {
-          showToast(`⚠️ ${result.notes || 'Job opened in browser. External portal requires manual login or direct submission.'}`, 'warning');
-        }
-      } else {
-        showToast(`Application processed: ${result.notes || result.status}`, 'info');
-      }
-      fetchJobs();
-      fetchStats();
-      if (state.activeJob && state.activeJob.id === jobId) {
-        closeJobModal();
-      }
-    } else {
-      showToast(result.error || `Application agent error (${res.status})`, 'error');
-      fetchJobs();
-      fetchStats();
+    if (!res.ok) {
+      showToast(initData.error || `Application agent error (${res.status})`, 'error');
+      applyBtns.forEach(b => {
+        b.disabled = false;
+        if (b.classList.contains('btn-quick-apply')) b.textContent = '⚡ Auto-Apply';
+      });
+      return;
     }
+
+    // Live status polling loop
+    let polls = 0;
+    const maxPolls = 80; // ~2 minutes max
+    const pollInterval = setInterval(async () => {
+      polls++;
+      try {
+        const sRes = await fetch(`/api/jobs/${jobId}/apply-status`);
+        if (!sRes.ok) return;
+        const sData = await sRes.json();
+
+        // Update button label with current stage
+        if (sData.stage && sData.is_active) {
+          applyBtns.forEach(b => {
+            if (b.classList.contains('btn-quick-apply')) {
+              b.textContent = `⏳ ${sData.stage.length > 20 ? sData.stage.slice(0, 18) + '...' : sData.stage}`;
+            }
+          });
+        }
+
+        // Check if finished
+        const terminalStatuses = ['APPLIED', 'SUBMITTED', 'MANUAL_REVIEW', 'READY_FOR_REVIEW', 'FAILED', 'NEEDS_HUMAN'];
+        const isDone = !sData.is_active || terminalStatuses.includes(sData.status) || polls >= maxPolls;
+
+        if (isDone) {
+          clearInterval(pollInterval);
+          applyBtns.forEach(b => {
+            b.disabled = false;
+            if (b.classList.contains('btn-quick-apply')) {
+              b.textContent = (sData.status === 'APPLIED' || sData.status === 'SUBMITTED') ? '✓ Applied' : '⚡ Auto-Apply';
+            }
+          });
+
+          if (sData.status === 'APPLIED' || sData.status === 'SUBMITTED') {
+            showToast(`🎉 Application auto-submitted! Proof screenshot captured.`, 'success');
+          } else if (sData.status === 'MANUAL_REVIEW' || sData.status === 'READY_FOR_REVIEW' || sData.status === 'NEEDS_HUMAN') {
+            if (sData.notes && (sData.notes.includes('pre-filled') || sData.notes.includes('fields filled'))) {
+              showToast(`📋 Form pre-filled & resume attached! Review and submit in the opened browser tab.`, 'success');
+            } else if (sData.notes && sData.notes.includes('CAPTCHA')) {
+              showToast(`⚠️ CAPTCHA encountered. Please solve it in the opened browser window.`, 'warning');
+            } else if (sData.notes && (sData.notes.includes('LinkedIn') || sData.notes.includes('login') || sData.notes.includes('sign-in'))) {
+              showToast(`⚠️ ${sData.notes}`, 'warning');
+            } else {
+              showToast(`📋 ${sData.notes || 'Job opened in browser. Ready for inspection.'}`, 'info');
+            }
+          } else if (sData.status === 'FAILED') {
+            showToast(sData.notes || 'Application attempt failed. Check opened browser tab to complete.', 'warning');
+          } else {
+            showToast(`Application finished with status: ${sData.status}`, 'info');
+          }
+
+          fetchJobs();
+          fetchStats();
+          if (state.activeJob && state.activeJob.id === jobId) {
+            closeJobModal();
+          }
+        }
+      } catch (pollErr) {
+        console.warn('Status poll error:', pollErr);
+      }
+    }, 1500);
+
   } catch (err) {
     console.error('Application error:', err);
     showToast(`Failed to connect to application agent: ${err.message || 'Server unreachable'}`, 'error');
-  } finally {
     applyBtns.forEach(b => {
       b.disabled = false;
       if (b.classList.contains('btn-quick-apply')) b.textContent = '⚡ Auto-Apply';
@@ -434,7 +480,7 @@ async function triggerApply(jobId, autoSubmit = true) {
 
 async function triggerBatchApply(autoSubmit = true) {
   const modeText = autoSubmit ? 'Auto-Submit' : 'Pre-fill (Review Mode)';
-  const eligibleJobs = (state.jobs || []).filter(j => j.status !== 'APPLIED');
+  const eligibleJobs = (state.jobs || []).filter(j => j.status !== 'APPLIED' && j.status !== 'SUBMITTED');
   if (eligibleJobs.length === 0) {
     showToast('No eligible unapplied jobs found matching current filters', 'warning');
     return;
@@ -449,7 +495,7 @@ async function triggerBatchApply(autoSubmit = true) {
     DOM.batchProgressCard.style.display = 'block';
     DOM.batchProgressTitle.textContent = `Applying to ${count} jobs simultaneously (${modeText})...`;
     DOM.batchProgressStats.textContent = `0 / ${count} Completed`;
-    DOM.batchProgressBar.style.width = '15%';
+    DOM.batchProgressBar.style.width = '10%';
     DOM.batchProgressDetail.textContent = `Spawning parallel stealth browser tabs and matching resumes...`;
     DOM.batchProgressCounts.textContent = `0 Applied | 0 Review | 0 Failed`;
   }
@@ -471,7 +517,8 @@ async function triggerBatchApply(autoSubmit = true) {
       body: JSON.stringify({
         job_ids: jobIds,
         auto_submit: autoSubmit,
-        max_concurrency: 3
+        max_concurrency: 3,
+        async: true
       })
     });
 
@@ -482,34 +529,62 @@ async function triggerBatchApply(autoSubmit = true) {
       data = {};
     }
 
-    if (res.ok && data.success) {
-      if (DOM.batchProgressBar) DOM.batchProgressBar.style.width = '100%';
-      if (DOM.batchProgressStats) DOM.batchProgressStats.textContent = `${data.total} / ${data.total} Completed`;
-      if (DOM.batchProgressCounts) {
-        DOM.batchProgressCounts.textContent = `${data.applied} Applied | ${data.manual_review} Review | ${data.failed || 0} Failed`;
-      }
-      if (DOM.batchProgressDetail) {
-        DOM.batchProgressDetail.textContent = `Autonomous sweep finished! Proof screenshots captured.`;
-      }
-
-      showToast(`🎉 Batch complete: ${data.applied} applications submitted, ${data.manual_review} ready for review!`, 'success');
-      fetchJobs();
-      fetchStats();
-
-      setTimeout(() => {
-        if (DOM.batchProgressCard) DOM.batchProgressCard.style.display = 'none';
-      }, 7000);
-    } else {
-      showToast(data.error || 'Batch application encountered an issue', 'error');
+    if (!res.ok) {
+      showToast(data.error || 'Batch application failed to start', 'error');
       if (DOM.batchProgressCard) DOM.batchProgressCard.style.display = 'none';
-      fetchJobs();
-      fetchStats();
+      return;
     }
+
+    // Poll live batch progress
+    const batchInterval = setInterval(async () => {
+      try {
+        const bRes = await fetch('/api/jobs/batch-status');
+        if (!bRes.ok) return;
+        const bState = await bRes.json();
+
+        const total = bState.total || count;
+        const completed = bState.completed || 0;
+        const pct = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 10;
+
+        if (DOM.batchProgressBar) DOM.batchProgressBar.style.width = `${Math.max(10, pct)}%`;
+        if (DOM.batchProgressStats) DOM.batchProgressStats.textContent = `${completed} / ${total} Completed`;
+        if (DOM.batchProgressCounts) {
+          DOM.batchProgressCounts.textContent = `${bState.applied || 0} Applied | ${bState.manual_review || 0} Review | ${bState.failed || 0} Failed`;
+        }
+        if (bState.current_job && DOM.batchProgressDetail) {
+          DOM.batchProgressDetail.textContent = `Active: ${bState.current_job}`;
+        }
+
+        if (!bState.running && completed >= total) {
+          clearInterval(batchInterval);
+          if (DOM.batchProgressBar) DOM.batchProgressBar.style.width = '100%';
+          if (DOM.batchProgressDetail) {
+            DOM.batchProgressDetail.textContent = `Autonomous sweep finished! Proof screenshots captured.`;
+          }
+
+          showToast(`🎉 Batch complete: ${bState.applied || 0} applications submitted, ${bState.manual_review || 0} ready for review!`, 'success');
+          fetchJobs();
+          fetchStats();
+
+          if (DOM.btnBatchApplySubmit) {
+            DOM.btnBatchApplySubmit.disabled = false;
+            DOM.btnBatchApplySubmit.innerHTML = `⚡ Auto-Apply Filtered (<span id="batch-apply-count">${DOM.batchApplyCount ? DOM.batchApplyCount.textContent : '0'}</span>)`;
+          }
+          if (DOM.btnBatchApplyReview) DOM.btnBatchApplyReview.disabled = false;
+
+          setTimeout(() => {
+            if (DOM.batchProgressCard) DOM.batchProgressCard.style.display = 'none';
+          }, 6000);
+        }
+      } catch (bErr) {
+        console.warn('Batch status poll error:', bErr);
+      }
+    }, 1500);
+
   } catch (err) {
     console.error('Batch apply error:', err);
     showToast(`Failed to connect to application agent: ${err.message || 'Server error'}`, 'error');
     if (DOM.batchProgressCard) DOM.batchProgressCard.style.display = 'none';
-  } finally {
     if (DOM.btnBatchApplySubmit) {
       DOM.btnBatchApplySubmit.disabled = false;
       DOM.btnBatchApplySubmit.innerHTML = `⚡ Auto-Apply Filtered (<span id="batch-apply-count">${DOM.batchApplyCount ? DOM.batchApplyCount.textContent : '0'}</span>)`;

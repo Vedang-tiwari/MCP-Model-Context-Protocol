@@ -5,11 +5,14 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+import asyncio
 from starlette.applications import Starlette
 from starlette.routing import Route, Mount
 from starlette.responses import JSONResponse, HTMLResponse, Response, FileResponse
 from starlette.staticfiles import StaticFiles
 from starlette.requests import Request
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 import uvicorn
 
 from core.database import DatabaseManager
@@ -167,7 +170,7 @@ async def api_evaluate_job(request: Request) -> JSONResponse:
 
 
 async def api_apply_job(request: Request) -> JSONResponse:
-    """Execute automated job application."""
+    """Execute automated job application with optional background task resilience."""
     job_id = request.path_params["job_id"]
     job = db.get_job(job_id)
     if not job:
@@ -179,6 +182,21 @@ async def api_apply_job(request: Request) -> JSONResponse:
         body = {}
 
     auto_submit = bool(body.get("auto_submit", False))
+    async_mode = bool(body.get("async", False))
+
+    if async_mode:
+        # Background mode: start immediately and return status for live polling
+        agent._update_task(job.id, "Application queued for execution...", 5, is_active=True)
+        asyncio.create_task(agent.apply(job, auto_submit=auto_submit))
+        mode_text = "Auto-Submit" if auto_submit else "Pre-fill (Review Mode)"
+        return JSONResponse({
+            "success": True,
+            "job_id": job.id,
+            "status": "APPLYING",
+            "notes": f"Autonomous agent initiated ({mode_text}).",
+            "stage": "Initializing stealth browser session..."
+        })
+
     try:
         record = await agent.apply(job, auto_submit=auto_submit)
         return JSONResponse({
@@ -196,6 +214,26 @@ async def api_apply_job(request: Request) -> JSONResponse:
         }, status_code=500)
 
 
+async def api_job_apply_status(request: Request) -> JSONResponse:
+    """Returns live apply progress, stage, and completion status for a job."""
+    job_id = request.path_params["job_id"]
+    job = db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+
+    task_info = agent.active_tasks.get(job_id, {})
+    return JSONResponse({
+        "job_id": job.id,
+        "status": job.status.value,
+        "stage": task_info.get("stage", "Idle"),
+        "progress": task_info.get("progress", 0),
+        "is_active": task_info.get("is_active", False),
+        "notes": task_info.get("notes") or "",
+        "screenshot_path": task_info.get("screenshot_path"),
+        "updated_at": task_info.get("updated_at")
+    })
+
+
 async def api_batch_apply_jobs(request: Request) -> JSONResponse:
     """Execute autonomous batch applications simultaneously across multiple jobs."""
     try:
@@ -206,6 +244,7 @@ async def api_batch_apply_jobs(request: Request) -> JSONResponse:
     job_ids = body.get("job_ids", [])
     auto_submit = bool(body.get("auto_submit", True))
     max_concurrency = int(body.get("max_concurrency", 3))
+    async_mode = bool(body.get("async", False))
 
     jobs_to_apply = []
     if job_ids:
@@ -220,10 +259,19 @@ async def api_batch_apply_jobs(request: Request) -> JSONResponse:
     if not jobs_to_apply:
         return JSONResponse({"error": "No eligible jobs found to apply.", "total": 0}, status_code=400)
 
+    if async_mode:
+        asyncio.create_task(agent.batch_apply(jobs_to_apply, auto_submit=auto_submit, max_concurrency=max_concurrency))
+        return JSONResponse({
+            "success": True,
+            "total": len(jobs_to_apply),
+            "message": f"Autonomous batch apply initiated for {len(jobs_to_apply)} jobs in background.",
+            "auto_submit": auto_submit
+        })
+
     try:
         results = await agent.batch_apply(jobs_to_apply, auto_submit=auto_submit, max_concurrency=max_concurrency)
-        applied_count = sum(1 for r in results if r.status == ApplicationStatus.APPLIED)
-        review_count = sum(1 for r in results if r.status == ApplicationStatus.MANUAL_REVIEW)
+        applied_count = sum(1 for r in results if r.status in (ApplicationStatus.APPLIED, ApplicationStatus.SUBMITTED))
+        review_count = sum(1 for r in results if r.status in (ApplicationStatus.MANUAL_REVIEW, ApplicationStatus.READY_FOR_REVIEW, ApplicationStatus.NEEDS_HUMAN))
         failed_count = sum(1 for r in results if r.status == ApplicationStatus.FAILED)
 
         return JSONResponse({
@@ -245,6 +293,18 @@ async def api_batch_apply_jobs(request: Request) -> JSONResponse:
     except Exception as e:
         logger.error(f"Batch application error: {e}", exc_info=True)
         return JSONResponse({"error": f"Batch application failed: {str(e)}"}, status_code=500)
+
+
+async def api_batch_apply_status(request: Request) -> JSONResponse:
+    """Returns active batch execution progress and metrics."""
+    return JSONResponse(agent.batch_state)
+
+
+async def api_job_history(request: Request) -> JSONResponse:
+    """Returns state transition audit history for a specific job (§1 & §3.3)."""
+    job_id = request.path_params["job_id"]
+    history = db.get_state_history(job_id)
+    return JSONResponse({"job_id": job_id, "history": history})
 
 
 async def api_get_profile(request: Request) -> JSONResponse:
@@ -493,7 +553,10 @@ routes = [
     Route("/api/jobs/{job_id}", api_get_job, methods=["GET"]),
     Route("/api/jobs/{job_id}/evaluate", api_evaluate_job, methods=["POST"]),
     Route("/api/jobs/{job_id}/apply", api_apply_job, methods=["POST"]),
+    Route("/api/jobs/{job_id}/apply-status", api_job_apply_status, methods=["GET"]),
+    Route("/api/jobs/{job_id}/history", api_job_history, methods=["GET"]),
     Route("/api/jobs/batch-apply", api_batch_apply_jobs, methods=["POST"]),
+    Route("/api/jobs/batch-status", api_batch_apply_status, methods=["GET"]),
     Route("/api/profile", api_get_profile, methods=["GET"]),
     Route("/api/profile", api_save_profile, methods=["POST"]),
     Route("/api/resumes", api_get_resumes, methods=["GET"]),
@@ -511,7 +574,17 @@ routes = [
     Mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 ]
 
-app = Starlette(debug=True, routes=routes)
+middleware = [
+    Middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=True
+    )
+]
+
+app = Starlette(debug=True, routes=routes, middleware=middleware)
 
 
 def run_web_server(host: str = "127.0.0.1", port: int = 8000):
