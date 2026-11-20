@@ -36,6 +36,8 @@ data/*.db
 data/test_jobs.db
 data/test_custom_platforms.json
 data/browser_profile/
+data/browser_profile_fallback/
+data/artifacts/
 data/screenshots/
 *.sqlite3
 
