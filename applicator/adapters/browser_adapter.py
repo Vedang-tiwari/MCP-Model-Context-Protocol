@@ -19,6 +19,7 @@ from playwright.async_api import Page, Frame
 
 from core.models import JobListing, ApplicationStatus, ApplicationRecord
 from core.profile_manager import ProfileManager
+from core.guardrails import GuardrailsEnforcer
 from applicator.browser import BrowserSessionManager
 from applicator.screening_solver import ScreeningQuestionSolver
 from applicator.hitl import HITLNotifier
@@ -38,6 +39,7 @@ class BrowserAdapter:
         self.profile_mgr = profile_mgr
         self.session_mgr = session_mgr
         self.hitl = hitl
+        self.guardrails = GuardrailsEnforcer(profile_mgr=profile_mgr)
         self.solver = ScreeningQuestionSolver(profile_mgr)
         self.screenshots_dir = Path(screenshots_dir)
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
@@ -106,6 +108,16 @@ class BrowserAdapter:
                 notes=f"Dry run complete. Plan ready for {target_url}"
             )
 
+        # Guardrail: Domain Safety Allow-List (§9)
+        domain_verdict = self.guardrails.validate_domain_safety(target_url, job.url)
+        if not domain_verdict:
+            return ApplyResult(
+                job_id=job.id,
+                status=ApplicationStatus.NEEDS_HUMAN,
+                needs_human=True,
+                notes=f"Navigation blocked by safety allow-list: {domain_verdict.reason}"
+            )
+
         try:
             if page is None:
                 page = await self.session_mgr.new_tab()
@@ -121,6 +133,26 @@ class BrowserAdapter:
             # Pre-form navigation - click Apply / Apply Now if on landing/description page
             page = await self._navigate_to_application_form(page)
             await self._dismiss_cookie_banners(page)
+
+            # Guardrail: Scan for scam, fee, or sensitive government ID requests (§9)
+            try:
+                page_text = await page.inner_text("body")
+                scam_verdict = self.guardrails.inspect_for_scams_or_sensitive_requests(page_text)
+                if not scam_verdict:
+                    ss_file = str(self.screenshots_dir / f"suspect_{job.id}.png")
+                    try:
+                        await page.screenshot(path=ss_file)
+                    except Exception:
+                        pass
+                    return ApplyResult(
+                        job_id=job.id,
+                        status=ApplicationStatus.NEEDS_HUMAN,
+                        needs_human=True,
+                        screenshot_path=ss_file,
+                        notes=f"Security Guardrail: {scam_verdict.reason}"
+                    )
+            except Exception:
+                pass
 
             # Step 1: Check for CAPTCHA / Bot detection
             if await self._detect_captcha(page):
