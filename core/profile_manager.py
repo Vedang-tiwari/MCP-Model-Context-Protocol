@@ -4,6 +4,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Tuple, List, Dict, Any, Optional
+import yaml
 
 import uuid
 from datetime import datetime, timezone
@@ -358,3 +359,64 @@ class ProfileManager:
                 lines.append(f"- [{qa.topic}] Q: {', '.join(qa.question_keywords)} -> A: {qa.answer}")
 
         return "\n".join(lines)
+
+    # -------------------------------------------------------------------------
+    # Blueprint §3 YAML Contracts & Confidence-Gated QA Bank
+    # -------------------------------------------------------------------------
+    def get_profile_yaml(self) -> Dict[str, Any]:
+        """Loads structured profile from config/profile.yaml."""
+        yaml_path = getattr(settings, "PROFILE_YAML_PATH", Path("config/profile.yaml"))
+        if yaml_path.exists():
+            try:
+                with open(yaml_path, "r", encoding="utf-8") as f:
+                    return yaml.safe_load(f) or {}
+            except Exception as e:
+                logger.error(f"Error reading profile.yaml: {e}")
+        return {}
+
+    def get_qa_bank(self) -> List[Dict[str, Any]]:
+        """Loads reusable form answers from config/qa_bank.yaml."""
+        yaml_path = getattr(settings, "QA_BANK_YAML_PATH", Path("config/qa_bank.yaml"))
+        if yaml_path.exists():
+            try:
+                with open(yaml_path, "r", encoding="utf-8") as f:
+                    return yaml.safe_load(f) or []
+            except Exception as e:
+                logger.error(f"Error reading qa_bank.yaml: {e}")
+        return []
+
+    def get_target_companies(self) -> List[Dict[str, Any]]:
+        """Loads curated company targets from config/companies.yaml."""
+        yaml_path = getattr(settings, "COMPANIES_YAML_PATH", Path("config/companies.yaml"))
+        if yaml_path.exists():
+            try:
+                with open(yaml_path, "r", encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+                    return data.get("target_companies", [])
+            except Exception as e:
+                logger.error(f"Error reading companies.yaml: {e}")
+        return []
+
+    def query_qa_bank(self, question: str) -> Tuple[Optional[str], str]:
+        """
+        Queries QA bank for a matching question pattern.
+        Returns (answer, confidence_level).
+        confidence_level is one of: 'high', 'medium', 'never_auto', or 'unknown'.
+        Never returns an automated answer for 'never_auto' fields.
+        """
+        bank = self.get_qa_bank()
+        q_clean = question.strip().lower()
+
+        for entry in bank:
+            pattern = entry.get("pattern", "")
+            try:
+                if re.search(pattern, q_clean, re.IGNORECASE):
+                    conf = entry.get("confidence", "medium")
+                    ans = entry.get("answer")
+                    if conf == "never_auto" or ans is None:
+                        return None, "never_auto"
+                    return str(ans), conf
+            except Exception:
+                pass
+
+        return None, "unknown"
