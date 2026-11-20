@@ -18,6 +18,7 @@ from core.database import DatabaseManager
 from core.profile_manager import ProfileManager
 from core.scoring import JobFitScorer
 from core.tailoring import ApplicationTailorer
+from core.guardrails import GuardrailsEnforcer
 from discovery.aggregator import JobAggregator
 from applicator.adapters import get_adapter_for_job
 from applicator.browser import BrowserSessionManager
@@ -40,6 +41,7 @@ class AutonomousPipelineOrchestrator:
         self.hitl = hitl or HITLNotifier()
         self.scorer = JobFitScorer(self.profile_mgr)
         self.tailorer = ApplicationTailorer(self.profile_mgr)
+        self.guardrails = GuardrailsEnforcer(self.db, self.profile_mgr)
         self.aggregator = JobAggregator(self.db, self.profile_mgr)
 
     async def run_cycle(
@@ -121,12 +123,32 @@ class AutonomousPipelineOrchestrator:
             )
             summary["tailored_ready"] += 1
 
-        # Step 4: Apply execution (READY_FOR_REVIEW / APPROVED -> SUBMITTED | NEEDS_HUMAN)
-        logger.info("--- [Cycle Step 4] Apply Execution ---")
+        # Step 4: Apply execution with strict §9 Guardrails & Stop Conditions
+        logger.info("--- [Cycle Step 4] Apply Execution (Guardrails Enforced) ---")
+        
+        # Guardrail: Active Hours Check
+        active_hours_verdict = self.guardrails.check_active_hours()
+        if not active_hours_verdict and not dry_run:
+            logger.warning(f"Apply step paused: {active_hours_verdict.reason}")
+            summary["notes"] = active_hours_verdict.reason
+            return summary
+
         target_status = ApplicationStatus.APPROVED if not auto_submit else ApplicationStatus.READY_FOR_REVIEW
         ready_jobs = self.db.list_jobs(status=target_status, limit=max_apply_count)
 
         for job in ready_jobs:
+            # Guardrail: Daily Application Limits
+            limit_verdict = self.guardrails.check_daily_limits(job.platform)
+            if not limit_verdict and not dry_run:
+                logger.warning(f"Submission halted: {limit_verdict.reason}")
+                break
+
+            # Guardrail: Circuit Breaker on Consecutive Failures
+            breaker_verdict = self.guardrails.check_consecutive_failures(job.platform)
+            if not breaker_verdict:
+                logger.warning(f"Skipping platform '{job.platform}': {breaker_verdict.reason}")
+                continue
+
             self.db.update_job_status(job.id, ApplicationStatus.APPLYING, actor="agent")
             adapter = get_adapter_for_job(job, self.profile_mgr, self.session_mgr, self.hitl)
             plan = await adapter.prepare(job)
