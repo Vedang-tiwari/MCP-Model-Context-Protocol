@@ -59,9 +59,12 @@ class Settings:
     MCP_SERVER_HOST: str = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
     MCP_SERVER_PORT: int = int(os.getenv("MCP_SERVER_PORT", "8000"))
 
-    # Config files
+    # Config files (JSON legacy & YAML Blueprint §3)
     PROFILE_PATH: Path = CONFIG_DIR / "candidate_profile.json"
     SEARCH_PREFS_PATH: Path = CONFIG_DIR / "search_preferences.json"
+    PROFILE_YAML_PATH: Path = CONFIG_DIR / "profile.yaml"
+    QA_BANK_YAML_PATH: Path = CONFIG_DIR / "qa_bank.yaml"
+    COMPANIES_YAML_PATH: Path = CONFIG_DIR / "companies.yaml"
 
 
 settings = Settings()

@@ -1,0 +1,89 @@
+# =============================================================================
+# Autonomous Job Application Agent - Q&A Knowledge Bank
+# Rules: 'never_auto' fields always escalate to human review unless explicitly pre-approved.
+# =============================================================================
+
+- pattern: "years of experience.*python"
+  answer: "4"
+  type: "number"
+  confidence: "high"
+
+- pattern: "total.*years of experience"
+  answer: "4"
+  type: "number"
+  confidence: "high"
+
+- pattern: "are you legally authorized to work|authorized to work|eligible to work"
+  answer: "Yes"
+  type: "boolean"
+  confidence: "high"
+
+- pattern: "will you now or in the future require sponsorship|require visa sponsorship|need sponsorship"
+  answer: "No"
+  type: "boolean"
+  confidence: "high"
+
+- pattern: "notice period|how soon can you start|earliest start date"
+  answer: "15 days"
+  type: "text"
+  confidence: "high"
+
+- pattern: "willing to relocate"
+  answer: "Yes"
+  type: "boolean"
+  confidence: "high"
+
+- pattern: "highest level of education|degree"
+  answer: "Bachelor's Degree"
+  type: "select"
+  confidence: "high"
+
+- pattern: "gender|sex"
+  answer: "Decline to self-identify"
+  type: "select"
+  confidence: "high"
+
+- pattern: "race|ethnicity"
+  answer: "Decline to self-identify"
+  type: "select"
+  confidence: "high"
+
+- pattern: "veteran status"
+  answer: "I am not a protected veteran"
+  type: "select"
+  confidence: "high"
+
+- pattern: "disability"
+  answer: "I do not have a disability"
+  type: "select"
+  confidence: "high"
+
+- pattern: "desired salary|expected ctc|expected salary|salary expectation|compensation expectation"
+  answer: null
+  type: "text"
+  confidence: "never_auto"
+
+- pattern: "criminal history|convicted of a felony"
+  answer: null
+  type: "boolean"
+  confidence: "never_auto"
+
+- pattern: "references|provide.*references"
+  answer: null
+  type: "text"
+  confidence: "never_auto"
+
+- pattern: "government id|ssn|social security|aadhaar|pan number"
+  answer: null
+  type: "text"
+  confidence: "never_auto"
+
+- pattern: "why do you want to work (at|for)|why this company|what interests you"
+  answer: "I am drawn by your mission to build innovative, high-impact products. My background in building scalable distributed systems and AI agents directly aligns with your technical roadmap."
+  type: "text"
+  confidence: "medium"
+
+- pattern: "biggest technical challenge|difficult bug"
+  answer: "At TechNova, I diagnosed a distributed race condition in our event ingestion pipeline that caused intermittent memory leaks. Refactored consumer groups with dead-letter queues and idempotency keys, boosting throughput by 40%."
+  type: "text"
+  confidence: "medium"

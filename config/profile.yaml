@@ -1,0 +1,131 @@
+# =============================================================================
+# Autonomous Job Application Agent - Candidate Profile
+# Source of truth for factual grounding. Zero fabrication allowed.
+# =============================================================================
+
+identity:
+  full_name: "Alex Mercer"
+  email: "alex.mercer@example.com"
+  phone: "+1 (555) 019-2834"
+  location:
+    city: "San Francisco"
+    state: "CA"
+    country: "United States"
+  links:
+    linkedin: "https://linkedin.com/in/alexmercer-dev"
+    github: "https://github.com/alexmercer-dev"
+    portfolio: "https://alexmercer.dev"
+
+work_authorization:
+  countries_authorized: ["US", "IN"]
+  needs_sponsorship: false
+  notice_period_days: 15
+  willing_to_relocate: true
+  remote_preference: ["remote", "hybrid", "onsite"]
+
+education:
+  - degree: "Bachelor of Science"
+    institution: "University of California, Berkeley"
+    field_of_study: "Computer Science"
+    graduation_year: 2020
+    score: "3.8/4.0"
+
+experience:
+  - company: "TechNova Solutions"
+    title: "Senior Full Stack Engineer"
+    dates: "2022-03 - Present"
+    location: "San Francisco, CA (Hybrid)"
+    bullets:
+      - "Architected real-time streaming data ingestion pipelines handling 2M+ records daily with 99.9% uptime."
+      - "Built resilient microservices and agentic workflow integrations using Python, FastAPI, and Playwright."
+      - "Optimized Redis caching and PostgreSQL query plans, decreasing p99 latency from 320ms to 45ms."
+
+  - company: "Apex Cloud Systems"
+    title: "Software Engineer"
+    dates: "2020-06 - 2022-02"
+    location: "Remote"
+    bullets:
+      - "Designed automated workflow engines in Python and React used across 12 distributed enterprise client systems."
+      - "Integrated third-party REST and GraphQL APIs with automated unit, integration, and end-to-end regression tests."
+      - "Led deployment automation and CI/CD pipeline modernization with Docker and GitHub Actions."
+
+projects:
+  - name: "Autonomous Agent Orchestrator"
+    stack: ["Python", "FastAPI", "Playwright", "SQLite", "OpenAI/Claude API"]
+    impact: "Built a 24/7 autonomous job scouting and form-filling system supporting multi-ATS integrations."
+    link: "https://github.com/alexmercer-dev/autonomous-job-agent"
+
+  - name: "Distributed Event Pipeline"
+    stack: ["Go", "Kafka", "PostgreSQL", "Redis"]
+    impact: "Created an open-source event-driven worker pool processing high-throughput webhook streams."
+    link: "https://github.com/alexmercer-dev/event-pipeline"
+
+skills:
+  strong:
+    - "Python"
+    - "TypeScript"
+    - "JavaScript"
+    - "FastAPI"
+    - "React"
+    - "Playwright"
+    - "PostgreSQL"
+    - "Redis"
+    - "Docker"
+    - "Git"
+    - "REST APIs"
+  familiar:
+    - "Go"
+    - "Kubernetes"
+    - "AWS"
+    - "LangChain"
+    - "GraphQL"
+    - "Next.js"
+    - "MongoDB"
+
+certifications:
+  - name: "AWS Certified Solutions Architect - Associate"
+    issuer: "Amazon Web Services"
+    year: 2022
+
+preferences:
+  target_titles:
+    - "AI Engineer"
+    - "Software Engineer"
+    - "Full Stack Engineer"
+    - "Backend Engineer"
+    - "MLOps Engineer"
+    - "Forward Deployed Engineer"
+  seniority:
+    - "entry"
+    - "mid"
+    - "senior"
+  locations:
+    - "Remote"
+    - "San Francisco, CA"
+    - "United States"
+    - "India"
+  company_types:
+    - "product"
+    - "startup"
+    - "enterprise"
+  min_comp: 120000
+  blocklist_companies:
+    - "Revature"
+    - "CyberCoders"
+  blocklist_keywords:
+    - "unpaid"
+    - "commission only"
+    - "no salary"
+    - "MLM"
+    - "pyramid"
+
+automation:
+  mode: "review"                       # review | auto (starts as review by default)
+  max_applications_per_day: 15
+  max_per_platform_per_day:
+    linkedin: 10
+    greenhouse: 20
+    lever: 20
+    ashby: 20
+    workable: 15
+  active_hours_local: ["09:00", "21:00"]

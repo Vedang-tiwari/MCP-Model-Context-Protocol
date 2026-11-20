@@ -1,0 +1,55 @@
+# =============================================================================
+# Autonomous Job Application Agent - Target Companies List
+# Used for direct ATS and Career Site discovery.
+# =============================================================================
+
+target_companies:
+  - name: "Anthropic"
+    ats: "greenhouse"
+    board_token: "anthropic"
+    careers_url: "https://job-boards.greenhouse.io/anthropic"
+
+  - name: "Coinbase"
+    ats: "greenhouse"
+    board_token: "coinbase"
+    careers_url: "https://www.coinbase.com/careers"
+
+  - name: "Figma"
+    ats: "greenhouse"
+    board_token: "figma"
+    careers_url: "https://job-boards.greenhouse.io/figma"
+
+  - name: "Stripe"
+    ats: "greenhouse"
+    board_token: "stripe"
+    careers_url: "https://stripe.com/jobs"
+
+  - name: "Elastic"
+    ats: "greenhouse"
+    board_token: "elastic"
+    careers_url: "https://jobs.elastic.co"
+
+  - name: "MongoDB"
+    ats: "greenhouse"
+    board_token: "mongodb"
+    careers_url: "https://www.mongodb.com/careers"
+
+  - name: "Vercel"
+    ats: "lever"
+    board_token: "vercel"
+    careers_url: "https://jobs.lever.co/vercel"
+
+  - name: "Supabase"
+    ats: "ashby"
+    board_token: "supabase"
+    careers_url: "https://jobs.ashbyhq.com/supabase"
+
+  - name: "Ramp"
+    ats: "ashby"
+    board_token: "ramp"
+    careers_url: "https://jobs.ashbyhq.com/ramp"
+
+  - name: "Linear"
+    ats: "ashby"
+    board_token: "linear"
+    careers_url: "https://jobs.ashbyhq.com/linear"
