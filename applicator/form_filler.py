@@ -34,6 +34,43 @@ class ApplicationAgent:
         self.screenshots_dir.mkdir(parents=True, exist_ok=True)
         # Bounded concurrency: allows up to 3 simultaneous browser applications
         self._semaphore = asyncio.Semaphore(3)
+        # In-memory tracking for real-time frontend status polling
+        self.active_tasks: Dict[str, Dict[str, Any]] = {}
+        self.batch_state: Dict[str, Any] = {
+            "running": False,
+            "total": 0,
+            "completed": 0,
+            "applied": 0,
+            "manual_review": 0,
+            "failed": 0,
+            "current_job": ""
+        }
+
+    def _update_task(
+        self,
+        job_id: str,
+        stage: str,
+        progress: int = 0,
+        is_active: bool = True,
+        notes: Optional[str] = None,
+        screenshot_path: Optional[str] = None,
+        status: Optional[str] = None
+    ):
+        """Updates in-memory live progress dictionary for a given job."""
+        current = self.active_tasks.get(job_id, {})
+        current.update({
+            "stage": stage,
+            "progress": progress,
+            "is_active": is_active,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+        if notes:
+            current["notes"] = notes
+        if screenshot_path:
+            current["screenshot_path"] = screenshot_path
+        if status:
+            current["status"] = status
+        self.active_tasks[job_id] = current
 
     async def apply(
         self,
@@ -48,7 +85,8 @@ class ApplicationAgent:
         """
         async with self._semaphore:
             logger.info(f"Initiating autonomous application for '{job.title}' at '{job.company}' ({job.url})")
-            self.db.update_job_status(job.id, ApplicationStatus.APPLYING)
+            self.db.update_job_status(job.id, ApplicationStatus.APPLYING, actor="agent", notes="Autonomous application initiated")
+            self._update_task(job.id, "Initializing browser session...", 15, is_active=True)
 
             record = ApplicationRecord(
                 job_id=job.id,
@@ -68,6 +106,7 @@ class ApplicationAgent:
                     page = await self.session_mgr.new_tab()
                     own_page = True
 
+                self._update_task(job.id, f"Navigating to {job.company} portal...", 30)
                 logger.info(f"Navigating stealth browser to: {target_url}")
                 await page.goto(target_url, wait_until="domcontentloaded", timeout=35000)
                 await asyncio.sleep(2)
@@ -76,6 +115,7 @@ class ApplicationAgent:
                 await self._dismiss_cookie_banners(page)
 
                 # Step 1: Pre-form navigation - click Apply / Apply Now if on a job listing page
+                self._update_task(job.id, "Detecting ATS form inputs...", 45)
                 page = await self._navigate_to_application_form(page)
 
                 # Dismiss cookie banners again in case new page or modal opened
@@ -91,11 +131,13 @@ class ApplicationAgent:
                     )
                     record.status = ApplicationStatus.MANUAL_REVIEW
                     record.notes = "Security verification / CAPTCHA challenge detected. Please complete verification in the opened browser window."
-                    self.db.update_job_status(job.id, ApplicationStatus.MANUAL_REVIEW)
+                    self.db.update_job_status(job.id, ApplicationStatus.MANUAL_REVIEW, actor="agent", notes=record.notes)
                     self.db.record_application(record)
+                    self._update_task(job.id, "CAPTCHA detected (Human required)", 100, is_active=False, notes=record.notes, status="MANUAL_REVIEW")
                     return record
 
                 # Step 3: Fill application form based on current URL / ATS
+                self._update_task(job.id, "Pre-filling profile & attaching tailored resume...", 65)
                 current_url = page.url or target_url
                 if "greenhouse.io" in current_url or job.metadata.get("ats_type") == "greenhouse":
                     record = await self._fill_greenhouse(page, job, auto_submit)
@@ -107,6 +149,7 @@ class ApplicationAgent:
                     record = await self._fill_generic_form(page, job, auto_submit)
 
                 # Capture screenshot evidence
+                self._update_task(job.id, "Capturing screenshot evidence...", 85)
                 screenshot_file = str(self.screenshots_dir / f"job_{job.id}.png")
                 try:
                     await page.screenshot(path=screenshot_file, full_page=False)
@@ -114,9 +157,24 @@ class ApplicationAgent:
                 except Exception as ss_err:
                     logger.debug(f"Screenshot capture skipped: {ss_err}")
 
-                # Update database
-                self.db.update_job_status(job.id, record.status)
+                # Update database with transition logging
+                self.db.update_job_status(
+                    job.id,
+                    record.status,
+                    actor="agent",
+                    evidence=record.screenshot_path,
+                    notes=record.notes
+                )
                 self.db.record_application(record)
+                self._update_task(
+                    job.id,
+                    "Application Complete" if record.status == ApplicationStatus.APPLIED else "Ready for Review",
+                    100,
+                    is_active=False,
+                    notes=record.notes,
+                    screenshot_path=record.screenshot_path,
+                    status=record.status.value
+                )
 
                 if record.status == ApplicationStatus.APPLIED:
                     await self.hitl.notify_application_submitted(
@@ -131,7 +189,9 @@ class ApplicationAgent:
                 record.status = ApplicationStatus.FAILED
                 record.notes = f"Application attempt failed ({e}). Check opened browser tab to complete manually."
                 record.error_message = str(e)
-                self.db.update_job_status(job.id, ApplicationStatus.FAILED)
+                self.db.update_job_status(job.id, ApplicationStatus.FAILED, actor="agent", notes=record.notes)
+                self.db.record_application(record)
+                self._update_task(job.id, f"Failed: {e}", 100, is_active=False, notes=record.notes, status="FAILED")
                 self.db.record_application(record)
 
             finally:
@@ -153,15 +213,26 @@ class ApplicationAgent:
     ) -> List[ApplicationRecord]:
         """
         Executes autonomous applications across multiple jobs simultaneously
-        using controlled Playwright tab concurrency.
+        using controlled Playwright tab concurrency with live progress reporting.
         """
         logger.info(f"Starting batch application sweep for {len(jobs)} jobs (concurrency={max_concurrency}, auto_submit={auto_submit})")
         sem = asyncio.Semaphore(max_concurrency)
+
+        self.batch_state = {
+            "running": True,
+            "total": len(jobs),
+            "completed": 0,
+            "applied": 0,
+            "manual_review": 0,
+            "failed": 0,
+            "current_job": ""
+        }
 
         async def _worker(job: JobListing) -> ApplicationRecord:
             async with sem:
                 page: Optional[Page] = None
                 record: Optional[ApplicationRecord] = None
+                self.batch_state["current_job"] = f"{job.title} at {job.company}"
                 try:
                     page = await self.session_mgr.new_tab()
                     record = await self.apply(job, auto_submit=auto_submit, page=page)
@@ -174,19 +245,30 @@ class ApplicationAgent:
                         notes=f"Batch execution error: {str(e)}",
                         error_message=str(e)
                     )
-                    self.db.update_job_status(job.id, ApplicationStatus.FAILED)
+                    self.db.update_job_status(job.id, ApplicationStatus.FAILED, actor="agent", notes=record.notes)
                     self.db.record_application(record)
                     return record
                 finally:
+                    self.batch_state["completed"] += 1
+                    if record and record.status in (ApplicationStatus.APPLIED, ApplicationStatus.SUBMITTED):
+                        self.batch_state["applied"] += 1
+                    elif record and record.status in (ApplicationStatus.MANUAL_REVIEW, ApplicationStatus.READY_FOR_REVIEW, ApplicationStatus.NEEDS_HUMAN):
+                        self.batch_state["manual_review"] += 1
+                    else:
+                        self.batch_state["failed"] += 1
+
                     if auto_submit and record and record.status == ApplicationStatus.APPLIED and page and not page.is_closed():
                         try:
                             await page.close()
                         except Exception:
                             pass
 
-        tasks = [_worker(job) for job in jobs]
-        results = await asyncio.gather(*tasks, return_exceptions=False)
-        return results
+        try:
+            tasks = [_worker(job) for job in jobs]
+            results = await asyncio.gather(*tasks, return_exceptions=False)
+            return results
+        finally:
+            self.batch_state["running"] = False
 
     async def _dismiss_cookie_banners(self, page: Page):
         """Dismisses common GDPR / cookie consent banners that obstruct form interaction."""
