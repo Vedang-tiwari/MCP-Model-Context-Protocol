@@ -121,11 +121,6 @@ preferences:
 
 automation:
   mode: "review"                       # review | auto (starts as review by default)
-  max_applications_per_day: 15
-  max_per_platform_per_day:
-    linkedin: 10
-    greenhouse: 20
-    lever: 20
-    ashby: 20
-    workable: 15
-  active_hours_local: ["09:00", "21:00"]
+  max_applications_per_day: null       # UNLIMITED: No daily application cap
+  max_per_platform_per_day: null       # UNLIMITED: No platform daily limit
+  active_hours_local: null             # 24/7/365 UNRESTRICTED operation
