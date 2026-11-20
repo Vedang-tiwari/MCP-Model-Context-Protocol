@@ -430,6 +430,63 @@ def test_resume_matching_cmd(job_title):
         console.print(f"[yellow]No resume resolved for '{job_title}'.[/yellow]")
 
 
+@cli.command(name="run-cycle")
+@click.option("--no-discovery", is_flag=True, help="Skip discovery sweep and run filter/tailor/apply on existing jobs")
+@click.option("--limit", "-l", default=5, type=int, help="Maximum number of applications to process")
+@click.option("--dry-run", is_flag=True, help="Execute dry-run without submitting forms")
+@click.option("--auto-submit", is_flag=True, help="Automatically submit approved applications")
+def run_cycle_cmd(no_discovery, limit, dry_run, auto_submit):
+    """Execute complete autonomous pipeline cycle (Discover -> Score -> Tailor -> Apply)."""
+    from core.orchestrator_cycle import AutonomousPipelineOrchestrator
+    orchestrator = AutonomousPipelineOrchestrator()
+
+    mode_label = "[yellow]Dry Run[/yellow]" if dry_run else ("[bold green]Live Auto-Submit[/bold green]" if auto_submit else "[cyan]Review Mode[/cyan]")
+    console.print(Panel.fit(
+        f"[bold cyan]⚡ Running Autonomous Application Cycle (Blueprint §12)[/bold cyan]\n"
+        f"Mode: {mode_label} | Batch Limit: [bold]{limit}[/bold] | Discovery: {'Off' if no_discovery else 'On'}",
+        border_style="cyan"
+    ))
+
+    async def _run():
+        return await orchestrator.run_cycle(
+            run_discovery=not no_discovery,
+            max_apply_count=limit,
+            dry_run=dry_run,
+            auto_submit=auto_submit
+        )
+
+    summary = asyncio.run(_run())
+
+    console.print("\n[bold green][+] Cycle Execution Completed![/bold green]")
+    for k, v in summary.items():
+        console.print(f"  • {k.replace('_', ' ').capitalize()}: [bold]{v}[/bold]")
+
+
+@cli.command(name="review")
+def review_cmd():
+    """List all jobs pending human review (READY_FOR_REVIEW / NEEDS_HUMAN)."""
+    db = DatabaseManager()
+    ready = db.list_jobs(status=ApplicationStatus.READY_FOR_REVIEW, limit=50)
+    needs = db.list_jobs(status=ApplicationStatus.NEEDS_HUMAN, limit=50)
+    all_pending = ready + needs
+
+    if not all_pending:
+        console.print("[green]No jobs currently pending review.[/green]")
+        return
+
+    table = Table(title=f"Pending Review Queue ({len(all_pending)} jobs)", show_header=True, header_style="bold magenta")
+    table.add_column("ID", style="dim", width=10)
+    table.add_column("Role", style="bold white", width=26)
+    table.add_column("Company", style="cyan", width=18)
+    table.add_column("Platform", style="green", width=14)
+    table.add_column("Status", style="yellow", width=16)
+
+    for j in all_pending:
+        table.add_row(j.id[:8], j.title[:24], j.company[:16], j.platform[:12], j.status.value)
+
+    console.print(table)
+
+
 @cli.command()
 @click.option("--host", default="127.0.0.1", help="Host address to bind to (default 127.0.0.1)")
 @click.option("--port", "-p", default=8000, type=int, help="Port to listen on (default 8000)")
