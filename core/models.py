@@ -6,13 +6,27 @@ from pydantic import BaseModel, Field
 
 
 class ApplicationStatus(str, Enum):
+    # Blueprint §1 Pipeline States
     DISCOVERED = "DISCOVERED"
-    EVALUATED = "EVALUATED"
-    QUEUED = "QUEUED"
+    FILTERED_OUT = "FILTERED_OUT"
+    SHORTLISTED = "SHORTLISTED"
+    TAILORED = "TAILORED"
+    READY_FOR_REVIEW = "READY_FOR_REVIEW"
+    APPROVED = "APPROVED"
     APPLYING = "APPLYING"
-    APPLIED = "APPLIED"
+    SUBMITTED = "SUBMITTED"
+    NEEDS_HUMAN = "NEEDS_HUMAN"
     FAILED = "FAILED"
-    MANUAL_REVIEW = "MANUAL_REVIEW"
+    FOLLOW_UP = "FOLLOW_UP"
+    RESPONSE_RECEIVED = "RESPONSE_RECEIVED"
+    INTERVIEW = "INTERVIEW"
+    REJECTED = "REJECTED"
+
+    # Backward compatibility aliases
+    APPLIED = "APPLIED"              # Maps logically to SUBMITTED
+    MANUAL_REVIEW = "MANUAL_REVIEW"  # Maps logically to NEEDS_HUMAN / READY_FOR_REVIEW
+    EVALUATED = "EVALUATED"          # Maps to SHORTLISTED / FILTERED_OUT
+    QUEUED = "QUEUED"
     SKIPPED = "SKIPPED"
 
 
@@ -69,6 +83,9 @@ class JobListing(BaseModel):
     discovered_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     match_score: Optional[int] = None
     match_reasons: Optional[List[str]] = Field(default_factory=list)
+    red_flags: Optional[List[str]] = Field(default_factory=list)
+    fit_score: Optional[float] = None
+    rejection_reason: Optional[str] = None
     status: ApplicationStatus = ApplicationStatus.DISCOVERED
     metadata: Dict[str, Any] = Field(default_factory=dict)
 

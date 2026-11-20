@@ -50,11 +50,29 @@ class DatabaseManager:
             )
             """)
 
-            # Ensure salary column exists if upgrading database
+            # Ensure salary and rejection_reason columns exist if upgrading database
             try:
                 cursor.execute("ALTER TABLE jobs ADD COLUMN salary TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                cursor.execute("ALTER TABLE jobs ADD COLUMN rejection_reason TEXT")
+            except sqlite3.OperationalError:
+                pass
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS state_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                from_state TEXT,
+                to_state TEXT NOT NULL,
+                actor TEXT NOT NULL DEFAULT 'agent',
+                timestamp TEXT NOT NULL,
+                evidence TEXT,
+                notes TEXT,
+                FOREIGN KEY (job_id) REFERENCES jobs (id)
+            )
+            """)
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS applications (
@@ -129,10 +147,19 @@ class DatabaseManager:
         job_id: str,
         status: ApplicationStatus,
         match_score: Optional[int] = None,
-        match_reasons: Optional[List[str]] = None
+        match_reasons: Optional[List[str]] = None,
+        actor: str = "agent",
+        evidence: Optional[str] = None,
+        notes: Optional[str] = None,
+        rejection_reason: Optional[str] = None
     ):
         with self._get_connection() as conn:
             cursor = conn.cursor()
+            # Fetch current status for transition audit log
+            cursor.execute("SELECT status FROM jobs WHERE id = ?", (job_id,))
+            prev_row = cursor.fetchone()
+            from_state = prev_row["status"] if prev_row else None
+
             updates = ["status = ?"]
             params = [status.value]
 
@@ -144,10 +171,41 @@ class DatabaseManager:
                 updates.append("match_reasons = ?")
                 params.append(json.dumps(match_reasons))
 
+            if rejection_reason is not None:
+                updates.append("rejection_reason = ?")
+                params.append(rejection_reason)
+
             params.append(job_id)
             query = f"UPDATE jobs SET {', '.join(updates)} WHERE id = ?"
             cursor.execute(query, params)
+
+            # Record state transition into state_history
+            now_iso = datetime.now(timezone.utc).isoformat()
+            cursor.execute("""
+            INSERT INTO state_history (
+                job_id, from_state, to_state, actor, timestamp, evidence, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                job_id,
+                from_state,
+                status.value,
+                actor,
+                now_iso,
+                evidence,
+                notes or rejection_reason
+            ))
+
             conn.commit()
+
+    def get_state_history(self, job_id: str) -> List[Dict[str, Any]]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT * FROM state_history WHERE job_id = ? ORDER BY id ASC",
+                (job_id,)
+            )
+            rows = cursor.fetchall()
+            return [dict(r) for r in rows]
 
     def list_jobs(
         self,
