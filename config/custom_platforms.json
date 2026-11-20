@@ -289,7 +289,7 @@
   },
   {
     "name": "sprout_custom",
-    "display_name": "Sprout Remote Jobs",
+    "display_name": "Sprout (usesprout.com)",
     "platform_type": "rss",
     "enabled": true,
     "url_template": "https://weworkremotely.com/categories/remote-programming-jobs.rss",

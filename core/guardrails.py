@@ -64,7 +64,8 @@ ALLOWED_PLATFORM_DOMAINS = {
     "ai-job.net",
     "icrunchdata.com",
     "ml-jobs.info",
-    "aijobs.ai"
+    "aijobs.ai",
+    "usesprout.com"
 }
 
 
