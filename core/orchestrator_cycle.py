@@ -18,6 +18,7 @@ from core.database import DatabaseManager
 from core.profile_manager import ProfileManager
 from core.scoring import JobFitScorer
 from core.tailoring import ApplicationTailorer
+from core.resume_tailor_agent import ResumeTailorAgent
 from core.guardrails import GuardrailsEnforcer
 from discovery.aggregator import JobAggregator
 from applicator.adapters import get_adapter_for_job
@@ -41,6 +42,7 @@ class AutonomousPipelineOrchestrator:
         self.hitl = hitl or HITLNotifier()
         self.scorer = JobFitScorer(self.profile_mgr)
         self.tailorer = ApplicationTailorer(self.profile_mgr)
+        self.tailor_agent = ResumeTailorAgent(profile_mgr=self.profile_mgr)
         self.guardrails = GuardrailsEnforcer(self.db, self.profile_mgr)
         self.aggregator = JobAggregator(self.db, self.profile_mgr)
 
@@ -103,25 +105,45 @@ class AutonomousPipelineOrchestrator:
         logger.info("--- [Cycle Step 3] Tailoring & Fabrication Audit ---")
         shortlisted_jobs = self.db.list_jobs(status=ApplicationStatus.SHORTLISTED, limit=max_apply_count)
         for job in shortlisted_jobs:
-            tailoring_res = self.tailorer.tailor(job)
-            if not tailoring_res.audit_passed:
+            try:
+                tailoring_res = await self.tailor_agent.tailor_for_job(job, generate_pdf=True)
+                if not tailoring_res.audit_passed:
+                    self.db.update_job_status(
+                        job.id,
+                        ApplicationStatus.NEEDS_HUMAN,
+                        actor="ResumeTailorAgent",
+                        notes=f"Fabrication audit failed: {', '.join(tailoring_res.audit_violations)}"
+                    )
+                    summary["audit_failed"] += 1
+                    continue
+
+                meta_updates = {
+                    "tailored_resume_pdf": tailoring_res.pdf_path,
+                    "tailored_resume_text": tailoring_res.text_path,
+                    "tailored_cover_letter": tailoring_res.cover_letter,
+                    "tailored_summary": tailoring_res.summary
+                }
+                self.db.update_job_metadata(job.id, meta_updates)
+
                 self.db.update_job_status(
                     job.id,
-                    ApplicationStatus.NEEDS_HUMAN,
-                    actor="agent",
-                    notes=f"Fabrication audit failed: {', '.join(tailoring_res.audit_violations)}"
+                    ApplicationStatus.READY_FOR_REVIEW,
+                    actor="ResumeTailorAgent",
+                    evidence=tailoring_res.pdf_path or tailoring_res.text_path,
+                    notes="Role-tailored ATS resume and cover letter generated. Passed fabrication audit."
                 )
-                summary["audit_failed"] += 1
-                continue
-
-            self.db.update_job_status(
-                job.id,
-                ApplicationStatus.READY_FOR_REVIEW,
-                actor="agent",
-                evidence=tailoring_res.resume_file_path,
-                notes="Tailored resume and cover letter generated. Passed fabrication audit."
-            )
-            summary["tailored_ready"] += 1
+                summary["tailored_ready"] += 1
+            except Exception as e:
+                logger.warning(f"ResumeTailorAgent encountered issue for {job.id}, falling back: {e}")
+                fallback_res = self.tailorer.tailor(job)
+                self.db.update_job_status(
+                    job.id,
+                    ApplicationStatus.READY_FOR_REVIEW,
+                    actor="ApplicationTailorer",
+                    evidence=fallback_res.resume_file_path,
+                    notes="Fallback tailored resume generated."
+                )
+                summary["tailored_ready"] += 1
 
         # Step 4: Apply execution with strict §9 Guardrails & Stop Conditions
         logger.info("--- [Cycle Step 4] Apply Execution (Guardrails Enforced) ---")

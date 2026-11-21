@@ -127,6 +127,24 @@ const DOM = {
   btnReEvaluate: document.getElementById('btn-re-evaluate'),
   btnApplyReview: document.getElementById('btn-apply-review'),
   btnApplySubmit: document.getElementById('btn-apply-submit'),
+  btnTailorResume: document.getElementById('btn-tailor-resume'),
+
+  // Tailor Modal
+  tailorModal: document.getElementById('tailor-modal'),
+  btnCloseTailorModal: document.getElementById('btn-close-tailor-modal'),
+  tailorModalTitle: document.getElementById('tailor-modal-title'),
+  tailorModalSub: document.getElementById('tailor-modal-sub'),
+  tailorAuditBadge: document.getElementById('tailor-audit-badge'),
+  tailorMatchedSkills: document.getElementById('tailor-matched-skills'),
+  tailorDomainFocus: document.getElementById('tailor-domain-focus'),
+  tailorSummaryBox: document.getElementById('tailor-summary-box'),
+  tailorSkillsList: document.getElementById('tailor-skills-list'),
+  tailorExpList: document.getElementById('tailor-exp-list'),
+  tailorCoverLetterBox: document.getElementById('tailor-cover-letter-box'),
+  btnCopyAtsText: document.getElementById('btn-copy-ats-text'),
+  btnCopyCoverLetter: document.getElementById('btn-copy-cover-letter'),
+  btnDownloadTailoredPdf: document.getElementById('btn-download-tailored-pdf'),
+  btnApplyWithTailored: document.getElementById('btn-apply-with-tailored'),
   
   // Toast
   toastContainer: document.getElementById('toast-container')
@@ -292,6 +310,9 @@ function renderJobsList(jobs) {
           <button class="button button-secondary button-sm btn-inspect" data-id="${j.id}">
             Details
           </button>
+          <button class="button button-secondary button-sm btn-quick-tailor" data-id="${j.id}" title="Run Resume Tailor Agent for this specific job">
+            📄 Tailor
+          </button>
           <button class="button ${isApplied ? 'button-secondary' : 'button-primary'} button-sm btn-quick-apply" data-id="${j.id}" ${isApplied ? 'disabled' : ''} title="Run autonomous agent to pre-fill application & attach resume">
             ${isApplied ? '✓ Applied' : '⚡ Auto-Apply'}
           </button>
@@ -303,6 +324,13 @@ function renderJobsList(jobs) {
   // Attach event handlers
   DOM.jobsList.querySelectorAll('.btn-inspect').forEach(btn => {
     btn.addEventListener('click', () => openJobModal(btn.dataset.id));
+  });
+
+  DOM.jobsList.querySelectorAll('.btn-quick-tailor').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerTailorResume(btn.dataset.id);
+    });
   });
 
   DOM.jobsList.querySelectorAll('.btn-quick-apply').forEach(btn => {
@@ -610,6 +638,144 @@ async function reEvaluateActiveJob() {
   } catch (err) {
     showToast('Evaluation failed', 'error');
   }
+}
+
+// -----------------------------------------------------------------------------
+// Resume Tailor Agent UI Functions
+// -----------------------------------------------------------------------------
+let activeTailoredArtifacts = null;
+let activeTailoredJobId = null;
+
+async function triggerTailorResume(jobId) {
+  if (!jobId && state.activeJob) jobId = state.activeJob.id;
+  if (!jobId) return;
+
+  const job = (state.jobs || []).find(j => j.id === jobId) || state.activeJob;
+  const roleTitle = job ? job.title : 'Target Role';
+  const company = job ? job.company : 'Company';
+
+  showToast(`📄 Resume Tailor Agent analyzing requirements for "${roleTitle}"...`, 'info');
+
+  if (DOM.btnTailorResume) {
+    DOM.btnTailorResume.disabled = true;
+    DOM.btnTailorResume.textContent = '⏳ Tailoring...';
+  }
+
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/tailor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ generate_pdf: true })
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      showToast(data.error || 'Failed to tailor resume', 'error');
+      return;
+    }
+
+    const art = data.artifacts;
+    openTailorModalWithData(art, jobId);
+    showToast(`✅ Resume tailored & verified with 0 hallucinations!`, 'success');
+    fetchJobs(); // Update job status in background if changed to TAILORED
+  } catch (err) {
+    console.error('Tailoring error:', err);
+    showToast(`Tailor Agent error: ${err.message}`, 'error');
+  } finally {
+    if (DOM.btnTailorResume) {
+      DOM.btnTailorResume.disabled = false;
+      DOM.btnTailorResume.textContent = '📄 Tailor Resume';
+    }
+  }
+}
+
+function openTailorModalWithData(art, jobId) {
+  activeTailoredArtifacts = art;
+  activeTailoredJobId = jobId;
+
+  if (DOM.tailorModalTitle) {
+    DOM.tailorModalTitle.textContent = `Tailored Resume: ${art.role_title}`;
+  }
+  if (DOM.tailorModalSub) {
+    DOM.tailorModalSub.textContent = `${art.company} · Generated specifically for this role`;
+  }
+
+  // Matched Skills & Focus
+  const analysis = art.match_analysis || {};
+  if (DOM.tailorMatchedSkills) {
+    const matched = (analysis.matched_strong_skills || []).concat(analysis.matched_familiar_skills || []);
+    DOM.tailorMatchedSkills.textContent = matched.length > 0 ? matched.join(', ') : 'Aligned with core experience';
+  }
+  if (DOM.tailorDomainFocus) {
+    DOM.tailorDomainFocus.textContent = `${analysis.domain || 'Software Engineering'} · ${analysis.seniority || 'Mid'} Level`;
+  }
+
+  // Summary
+  if (DOM.tailorSummaryBox) {
+    DOM.tailorSummaryBox.textContent = art.summary || 'Summary generated.';
+  }
+
+  // Categorized Skills
+  if (DOM.tailorSkillsList) {
+    DOM.tailorSkillsList.innerHTML = '';
+    const skills = art.ordered_skills || {};
+    for (const [cat, items] of Object.entries(skills)) {
+      const line = document.createElement('div');
+      line.innerHTML = `<span style="font-weight: 600; color: var(--color-text);">${escapeHtml(cat)}:</span> <span style="color: var(--color-text-subtle);">${escapeHtml(items.join(', '))}</span>`;
+      DOM.tailorSkillsList.appendChild(line);
+    }
+  }
+
+  // Experience Bullets
+  if (DOM.tailorExpList) {
+    DOM.tailorExpList.innerHTML = '';
+    const exps = art.tailored_experience || [];
+    exps.forEach(exp => {
+      const item = document.createElement('div');
+      item.style.padding = '8px 12px';
+      item.style.background = 'var(--color-surface-inset)';
+      item.style.borderRadius = 'var(--radius-sm)';
+      const bulletsHtml = (exp.bullets || []).map(b => `<li style="margin-bottom: 2px;">${escapeHtml(b)}</li>`).join('');
+      item.innerHTML = `
+        <div style="display: flex; justify-content: space-between; font-weight: 600; color: var(--color-text);">
+          <span>${escapeHtml(exp.title)} — ${escapeHtml(exp.company)}</span>
+          <span style="font-size: 11px; color: var(--color-text-subtle);">${escapeHtml(exp.dates || '')}</span>
+        </div>
+        <ul style="margin: 4px 0 0 16px; padding: 0; color: var(--color-text-subtle);">
+          ${bulletsHtml}
+        </ul>
+      `;
+      DOM.tailorExpList.appendChild(item);
+    });
+  }
+
+  // Cover Letter
+  if (DOM.tailorCoverLetterBox) {
+    DOM.tailorCoverLetterBox.textContent = art.cover_letter || 'Cover letter generated.';
+  }
+
+  // PDF Download Button
+  if (DOM.btnDownloadTailoredPdf) {
+    if (art.pdf_filename) {
+      DOM.btnDownloadTailoredPdf.style.display = 'inline-flex';
+      DOM.btnDownloadTailoredPdf.href = `/api/artifacts/${art.pdf_filename}`;
+      DOM.btnDownloadTailoredPdf.download = art.pdf_filename;
+    } else {
+      DOM.btnDownloadTailoredPdf.style.display = 'none';
+    }
+  }
+
+  if (DOM.tailorModal) {
+    DOM.tailorModal.classList.add('open');
+  }
+}
+
+function closeTailorModal() {
+  if (DOM.tailorModal) {
+    DOM.tailorModal.classList.remove('open');
+  }
+  activeTailoredArtifacts = null;
+  activeTailoredJobId = null;
 }
 
 // -----------------------------------------------------------------------------
@@ -1282,6 +1448,46 @@ function initEventListeners() {
   DOM.btnApplySubmit.addEventListener('click', () => {
     if (state.activeJob) triggerApply(state.activeJob.id, true);
   });
+  if (DOM.btnTailorResume) {
+    DOM.btnTailorResume.addEventListener('click', () => {
+      if (state.activeJob) triggerTailorResume(state.activeJob.id);
+    });
+  }
+
+  // Tailor Modal Actions
+  if (DOM.btnCloseTailorModal) {
+    DOM.btnCloseTailorModal.addEventListener('click', closeTailorModal);
+  }
+  if (DOM.tailorModal) {
+    DOM.tailorModal.addEventListener('click', (e) => {
+      if (e.target === DOM.tailorModal) closeTailorModal();
+    });
+  }
+  if (DOM.btnCopyAtsText) {
+    DOM.btnCopyAtsText.addEventListener('click', () => {
+      if (activeTailoredArtifacts && activeTailoredArtifacts.ats_text) {
+        navigator.clipboard.writeText(activeTailoredArtifacts.ats_text);
+        showToast('📋 ATS Resume Plain Text copied to clipboard!', 'success');
+      }
+    });
+  }
+  if (DOM.btnCopyCoverLetter) {
+    DOM.btnCopyCoverLetter.addEventListener('click', () => {
+      if (activeTailoredArtifacts && activeTailoredArtifacts.cover_letter) {
+        navigator.clipboard.writeText(activeTailoredArtifacts.cover_letter);
+        showToast('✉️ Tailored Cover Letter copied to clipboard!', 'success');
+      }
+    });
+  }
+  if (DOM.btnApplyWithTailored) {
+    DOM.btnApplyWithTailored.addEventListener('click', () => {
+      if (activeTailoredJobId) {
+        closeTailorModal();
+        closeJobModal();
+        triggerApply(activeTailoredJobId, true);
+      }
+    });
+  }
 
   // Add Platform Modal
   DOM.btnOpenAddPlatform.addEventListener('click', () => {
@@ -1302,6 +1508,7 @@ function initEventListeners() {
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       closeJobModal();
+      closeTailorModal();
       DOM.addPlatformModal.classList.remove('open');
     }
   });

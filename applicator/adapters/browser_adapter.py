@@ -68,11 +68,20 @@ class BrowserAdapter:
         }
 
         resume_path = getattr(artifacts, "resume_file_path", None)
+        if not resume_path and hasattr(artifacts, "pdf_path"):
+            resume_path = getattr(artifacts, "pdf_path", None)
+        if not resume_path and job.metadata and job.metadata.get("tailored_resume_pdf"):
+            cand_pdf = Path(job.metadata["tailored_resume_pdf"])
+            if cand_pdf.exists():
+                resume_path = str(cand_pdf)
+
         if not resume_path:
             p_resume = self.profile_mgr.get_resume_for_job(job)
             resume_path = str(p_resume) if p_resume and p_resume.exists() else None
 
         cover_letter = getattr(artifacts, "cover_letter", None)
+        if not cover_letter and job.metadata and job.metadata.get("tailored_cover_letter"):
+            cover_letter = job.metadata.get("tailored_cover_letter")
 
         target_url = job.apply_url or job.url
         if target_url and not target_url.startswith("http"):

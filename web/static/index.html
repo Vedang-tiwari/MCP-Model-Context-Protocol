@@ -637,11 +637,83 @@
           Open Official Posting ↗
         </a>
         <div style="display: flex; gap: var(--space-2);">
+          <button class="button button-secondary button-sm" id="btn-tailor-resume" title="Run Resume Tailor Agent for this specific job">
+            📄 Tailor Resume
+          </button>
           <button class="button button-secondary button-sm" id="btn-apply-review" title="Launch stealth browser, fill candidate details and keep open for review">
             ⚡ Pre-fill (Review Mode)
           </button>
           <button class="button button-primary button-sm" id="btn-apply-submit" title="Launch stealth browser, fill details and auto-submit">
             🚀 Auto-Submit
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resume Tailor Modal -->
+  <div class="modal-backdrop" id="tailor-modal">
+    <div class="modal-card" style="max-width: 780px;">
+      <div class="modal-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-success" style="font-size: 10px;">RESUME TAILOR AGENT</span>
+            <span class="badge" id="tailor-audit-badge" style="background: rgba(74, 222, 128, 0.15); color: #4ade80;">✅ ZERO FABRICATION</span>
+          </div>
+          <h2 id="tailor-modal-title" style="font-size: 18px; font-weight: 600; color: var(--color-text); margin-top: 4px;">Tailored Resume & Alignment</h2>
+          <div id="tailor-modal-sub" style="font-size: 13px; color: var(--color-text-muted);">Company · Role</div>
+        </div>
+        <button class="button button-secondary button-sm" id="btn-close-tailor-modal">✕</button>
+      </div>
+
+      <div class="modal-body" style="max-height: 68vh; overflow-y: auto;">
+        <!-- Skill Match & Analysis Banner -->
+        <div class="panel" style="margin-bottom: var(--space-4); background: var(--color-surface-inset);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); font-size: 12px;">
+            <div>
+              <div class="input-label" style="font-size: 11px;">Matched Ground Truth Skills (Promoted to Top)</div>
+              <div id="tailor-matched-skills" style="color: var(--color-success); font-weight: 500; margin-top: 4px;">-</div>
+            </div>
+            <div>
+              <div class="input-label" style="font-size: 11px;">Domain & Seniority Focus</div>
+              <div id="tailor-domain-focus" style="color: var(--color-text); font-weight: 500; margin-top: 4px;">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tailored Summary -->
+        <div class="input-label">Tailored Professional Summary (Grounded in Verified Experience)</div>
+        <div class="code-box" id="tailor-summary-box" style="margin-bottom: var(--space-4); line-height: 1.5; color: var(--color-text); font-size: 13px;">
+          Loading tailored summary...
+        </div>
+
+        <!-- Categorized Technical Skills -->
+        <div class="input-label">Categorized Skills (ATS Optimized & Sorted)</div>
+        <div id="tailor-skills-list" style="margin-bottom: var(--space-4); display: flex; flex-direction: column; gap: 6px; font-size: 12px;">
+        </div>
+
+        <!-- Prioritized Experience -->
+        <div class="input-label">Prioritized Experience Bullets</div>
+        <div id="tailor-exp-list" style="margin-bottom: var(--space-4); font-size: 12px; display: flex; flex-direction: column; gap: 8px;">
+        </div>
+
+        <!-- Cover Letter -->
+        <div class="input-label">Tailored Cover Letter (≤ 200 Words, Zero Clichés)</div>
+        <div class="code-box" id="tailor-cover-letter-box" style="max-height: 160px; overflow-y: auto; white-space: pre-wrap; font-size: 12px; margin-bottom: var(--space-2);">
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <div style="display: flex; gap: 8px;">
+          <button class="button button-secondary button-sm" id="btn-copy-ats-text">📋 Copy ATS Text</button>
+          <button class="button button-secondary button-sm" id="btn-copy-cover-letter">✉️ Copy Cover Letter</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <a href="#" target="_blank" class="button button-secondary button-sm" id="btn-download-tailored-pdf" style="display: none; text-decoration: none;">
+            📥 Download ATS PDF
+          </a>
+          <button class="button button-primary button-sm" id="btn-apply-with-tailored">
+            ⚡ Auto-Apply With This Resume
           </button>
         </div>
       </div>

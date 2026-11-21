@@ -197,6 +197,17 @@ class DatabaseManager:
 
             conn.commit()
 
+    def update_job_metadata(self, job_id: str, metadata_updates: Dict[str, Any]):
+        """Merge updates into a job's JSON metadata column."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT metadata FROM jobs WHERE id = ?", (job_id,))
+            row = cursor.fetchone()
+            current_meta = json.loads(row["metadata"]) if (row and row["metadata"]) else {}
+            current_meta.update(metadata_updates)
+            cursor.execute("UPDATE jobs SET metadata = ? WHERE id = ?", (json.dumps(current_meta), job_id))
+            conn.commit()
+
     def get_state_history(self, job_id: str) -> List[Dict[str, Any]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()

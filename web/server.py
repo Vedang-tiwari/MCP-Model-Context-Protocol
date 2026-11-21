@@ -4,6 +4,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
 
 import asyncio
 from starlette.applications import Starlette
@@ -24,6 +25,7 @@ from discovery.registry import PlatformRegistry
 from applicator.browser import BrowserSessionManager
 from applicator.form_filler import ApplicationAgent
 from applicator.hitl import HITLNotifier
+from core.resume_tailor_agent import ResumeTailorAgent
 
 logger = logging.getLogger("mcp.web")
 
@@ -40,6 +42,7 @@ aggregator = JobAggregator(db, profile_mgr, registry=registry)
 hitl = HITLNotifier()
 session_mgr = BrowserSessionManager()
 agent = ApplicationAgent(db, profile_mgr, session_mgr, hitl)
+tailor_agent = ResumeTailorAgent(profile_mgr=profile_mgr)
 
 
 # -----------------------------------------------------------------------------
@@ -417,6 +420,103 @@ async def api_download_resume(request: Request) -> Response:
     return FileResponse(path=str(path), media_type=media_type, filename=mapping.file_name)
 
 
+async def api_tailor_job_resume(request: Request) -> JSONResponse:
+    """Tailor a candidate resume specifically for a discovered job."""
+    job_id = request.path_params["job_id"]
+    job = db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": f"Job '{job_id}' not found."}, status_code=404)
+
+    try:
+        body = {}
+        if request.headers.get("content-type") == "application/json":
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+
+        generate_pdf = body.get("generate_pdf", True)
+        artifacts = await tailor_agent.tailor_for_job(job, generate_pdf=generate_pdf)
+
+        # Update metadata in database
+        meta_updates = {
+            "tailored_resume_pdf": artifacts.pdf_path,
+            "tailored_resume_text": artifacts.text_path,
+            "tailored_cover_letter": artifacts.cover_letter,
+            "tailored_summary": artifacts.summary,
+            "tailored_match_analysis": artifacts.match_analysis,
+            "tailored_at": datetime.now(timezone.utc).isoformat()
+        }
+        db.update_job_metadata(job_id, meta_updates)
+
+        # Update state to TAILORED if currently DISCOVERED or SHORTLISTED
+        if job.status in [ApplicationStatus.DISCOVERED, ApplicationStatus.SHORTLISTED]:
+            db.update_job_status(
+                job_id,
+                ApplicationStatus.TAILORED,
+                actor="ResumeTailorAgent",
+                evidence=artifacts.pdf_path or artifacts.text_path,
+                notes=f"Tailored resume generated. Audit: {'PASSED' if artifacts.audit_passed else 'VIOLATIONS'}"
+            )
+
+        return JSONResponse({
+            "success": True,
+            "artifacts": artifacts.to_dict()
+        })
+    except Exception as e:
+        logger.error(f"Tailoring failed for job '{job_id}': {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_tailor_custom_resume(request: Request) -> JSONResponse:
+    """Tailor a candidate resume for an arbitrary role and job description."""
+    try:
+        data = await request.json()
+        role = data.get("role", "").strip()
+        company = data.get("company", "Target Company").strip()
+        description = data.get("description", "").strip()
+        generate_pdf = data.get("generate_pdf", True)
+
+        if not role:
+            return JSONResponse({"error": "Role title is required."}, status_code=400)
+
+        artifacts = await tailor_agent.tailor_for_custom_role(
+            role_title=role,
+            company=company,
+            job_description=description,
+            generate_pdf=generate_pdf
+        )
+
+        return JSONResponse({
+            "success": True,
+            "artifacts": artifacts.to_dict()
+        })
+    except Exception as e:
+        logger.error(f"Custom resume tailoring failed: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_download_artifact(request: Request) -> Response:
+    """Download or preview a generated artifact file (PDF, TXT)."""
+    filename = request.path_params["filename"]
+    clean_filename = Path(filename).name
+    file_path = Path("data/artifacts") / clean_filename
+
+    if not file_path.exists():
+        file_path_res = Path("data/resumes") / clean_filename
+        if file_path_res.exists():
+            file_path = file_path_res
+        else:
+            return JSONResponse({"error": f"Artifact '{clean_filename}' not found on disk."}, status_code=404)
+
+    media_type = "application/pdf" if file_path.suffix.lower() == ".pdf" else "text/plain; charset=utf-8"
+    return FileResponse(
+        str(file_path),
+        media_type=media_type,
+        filename=file_path.name
+    )
+
+
 async def api_get_platforms(request: Request) -> JSONResponse:
     """List all registered platforms."""
     platforms = registry.list_platforms()
@@ -553,10 +653,13 @@ routes = [
     Route("/api/jobs/{job_id}", api_get_job, methods=["GET"]),
     Route("/api/jobs/{job_id}/evaluate", api_evaluate_job, methods=["POST"]),
     Route("/api/jobs/{job_id}/apply", api_apply_job, methods=["POST"]),
+    Route("/api/jobs/{job_id}/tailor", api_tailor_job_resume, methods=["POST"]),
     Route("/api/jobs/{job_id}/apply-status", api_job_apply_status, methods=["GET"]),
     Route("/api/jobs/{job_id}/history", api_job_history, methods=["GET"]),
     Route("/api/jobs/batch-apply", api_batch_apply_jobs, methods=["POST"]),
     Route("/api/jobs/batch-status", api_batch_apply_status, methods=["GET"]),
+    Route("/api/resume/tailor", api_tailor_custom_resume, methods=["POST"]),
+    Route("/api/artifacts/{filename:path}", api_download_artifact, methods=["GET"]),
     Route("/api/profile", api_get_profile, methods=["GET"]),
     Route("/api/profile", api_save_profile, methods=["POST"]),
     Route("/api/resumes", api_get_resumes, methods=["GET"]),

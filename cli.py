@@ -487,6 +487,93 @@ def review_cmd():
     console.print(table)
 
 
+@cli.command(name="tailor-resume")
+@click.option("--job-id", "-j", help="ID of discovered job to tailor resume for")
+@click.option("--role", "-r", help="Target job role title (e.g. 'Senior AI Engineer')")
+@click.option("--company", "-c", default="Target Company", help="Target company name")
+@click.option("--desc", "-d", help="Job description snippet or requirements")
+@click.option("--no-pdf", is_flag=True, help="Skip generating PDF (text only)")
+def tailor_resume_cmd(job_id, role, company, desc, no_pdf):
+    """Run Autonomous Resume Tailoring Agent for a specific job or role."""
+    from core.resume_tailor_agent import ResumeTailorAgent
+
+    db = DatabaseManager()
+    profile_mgr = ProfileManager()
+    agent = ResumeTailorAgent(profile_mgr=profile_mgr)
+
+    target_job = None
+    if job_id:
+        target_job = db.get_job(job_id)
+        if not target_job:
+            console.print(f"[bold red][!] Job with ID '{job_id}' not found in database.[/bold red]")
+            return
+        target_role = target_job.title
+        target_company = target_job.company
+        target_desc = target_job.description or f"Role: {target_job.title} at {target_job.company}"
+    else:
+        if not role:
+            console.print("[bold red][!] Either --job-id or --role must be provided.[/bold red]")
+            return
+        target_role = role
+        target_company = company
+        target_desc = desc or f"Role: {role} at {company}"
+
+    console.print(Panel.fit(
+        f"[bold cyan]📄 Autonomous Resume Tailoring Agent[/bold cyan]\n"
+        f"Target Role: [bold white]{target_role}[/bold white]\n"
+        f"Company: [bold green]{target_company}[/bold green]\n"
+        f"Ground Truth Profile: [dim]config/profile.yaml[/dim]",
+        border_style="cyan"
+    ))
+
+    async def _run():
+        with console.status("[bold green]Analyzing requirements & tailoring resume...[/bold green]"):
+            if target_job:
+                return await agent.tailor_for_job(target_job, generate_pdf=not no_pdf)
+            else:
+                return await agent.tailor_for_custom_role(
+                    role_title=target_role,
+                    company=target_company,
+                    job_description=target_desc,
+                    generate_pdf=not no_pdf
+                )
+
+    artifacts = asyncio.run(_run())
+
+    # Output analysis table
+    analysis = artifacts.match_analysis
+    table = Table(title="Requirement & Skill Match Analysis", show_header=True, header_style="bold magenta")
+    table.add_column("Category", style="cyan", width=22)
+    table.add_column("Details", style="white", width=55)
+
+    table.add_row("Detected Seniority", analysis.get("seniority", "Mid"))
+    table.add_row("Primary Domain", analysis.get("domain", "General"))
+    table.add_row("Matched Strong Skills", ", ".join(analysis.get("matched_strong_skills", [])) or "None")
+    table.add_row("Matched Familiar Skills", ", ".join(analysis.get("matched_familiar_skills", [])) or "None")
+    table.add_row("Missing JD Skills", ", ".join(analysis.get("missing_skills", [])) or "None (Full Coverage)")
+
+    console.print(table)
+
+    # Fabrication Audit status
+    audit_badge = "[bold green]PASSED (Zero Hallucinations)[/bold green]" if artifacts.audit_passed else f"[bold red]FAILED: {', '.join(artifacts.audit_violations)}[/bold red]"
+    console.print(f"\n[bold]Fabrication Audit (Pass 2):[/bold] {audit_badge}")
+
+    # Summary Panel
+    console.print(Panel(
+        f"[bold white]Tailored Summary:[/bold white]\n{artifacts.summary}\n\n"
+        f"[bold white]Cover Letter Snippet:[/bold white]\n{artifacts.cover_letter[:280]}...",
+        title="[bold yellow]Tailored Content Preview[/bold yellow]",
+        border_style="yellow"
+    ))
+
+    # Generated files
+    console.print("\n[bold green][+] Artifacts Successfully Generated:[/bold green]")
+    if artifacts.pdf_path:
+        console.print(f"  • ATS-Safe PDF: [bold cyan]{artifacts.pdf_path}[/bold cyan]")
+    if artifacts.text_path:
+        console.print(f"  • ATS Plain Text: [bold cyan]{artifacts.text_path}[/bold cyan]")
+
+
 @cli.command()
 @click.option("--host", default="127.0.0.1", help="Host address to bind to (default 127.0.0.1)")
 @click.option("--port", "-p", default=8000, type=int, help="Port to listen on (default 8000)")
