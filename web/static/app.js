@@ -59,6 +59,8 @@ const DOM = {
   btnAddScoutRole: document.getElementById('btn-add-scout-role'),
   scoutThresholdDisplay: document.getElementById('scout-threshold-display'),
   scoutAutoapplyBadge: document.getElementById('scout-autoapply-badge'),
+  scoutTargetPlatform: document.getElementById('scout-target-platform'),
+  scoutPlatformBadge: document.getElementById('scout-platform-badge'),
   scoutProviderList: document.getElementById('scout-provider-list'),
   scoutConsole: document.getElementById('scout-console'),
   
@@ -781,35 +783,101 @@ function closeTailorModal() {
 // -----------------------------------------------------------------------------
 // Live Discovery Scout
 // -----------------------------------------------------------------------------
-async function triggerLiveScout() {
+function getPlatformDisplayName(key) {
+  if (!key) return 'All Platforms';
+  if (DOM.filterPlatform) {
+    const opt = DOM.filterPlatform.querySelector(`option[value="${key}"]`);
+    if (opt) {
+      const txt = opt.textContent.split('(')[0].trim();
+      return txt.length > 0 ? txt : opt.textContent.trim();
+    }
+  }
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function updateScoutButtonLabel() {
+  const currentPlatform = state.filters.platform || (DOM.scoutTargetPlatform ? DOM.scoutTargetPlatform.value : '');
+  const disp = getPlatformDisplayName(currentPlatform);
+
+  if (DOM.btnQuickScout) {
+    const lbl = DOM.btnQuickScout.querySelector('span:last-child');
+    if (lbl) {
+      lbl.textContent = currentPlatform ? `Run Discovery Sweep (${disp})` : 'Run Discovery Sweep';
+    }
+  }
+
+  if (DOM.btnRunScoutFull) {
+    const lbl = DOM.btnRunScoutFull.querySelector('span');
+    if (lbl) {
+      lbl.textContent = currentPlatform ? `Trigger Live Sweep (${disp})` : 'Trigger Live Sweep';
+    }
+  }
+
+  if (DOM.scoutPlatformBadge) {
+    DOM.scoutPlatformBadge.textContent = currentPlatform ? disp.toUpperCase() : 'ALL PLATFORMS';
+    DOM.scoutPlatformBadge.className = `badge ${currentPlatform ? 'badge-success' : ''}`;
+  }
+}
+
+async function triggerLiveScout(explicitPlatform = null) {
   DOM.btnQuickScout.disabled = true;
   DOM.btnRunScoutFull.disabled = true;
-  DOM.btnQuickScout.querySelector('span:last-child').textContent = 'Scouting...';
-  
+
+  // Resolve targeted platform: explicit parameter, state filter, or scout view dropdown
+  let selectedPlatform = explicitPlatform;
+  if (!selectedPlatform) {
+    selectedPlatform = state.filters.platform || (DOM.scoutTargetPlatform ? DOM.scoutTargetPlatform.value : '') || null;
+  }
+  if (selectedPlatform === '') selectedPlatform = null;
+
+  const platformName = selectedPlatform ? getPlatformDisplayName(selectedPlatform) : 'All Platforms';
+
+  DOM.btnQuickScout.querySelector('span:last-child').textContent = selectedPlatform ? `Scouting ${platformName}...` : 'Scouting...';
+  if (DOM.btnRunScoutFull) {
+    DOM.btnRunScoutFull.querySelector('span').textContent = selectedPlatform ? `Scouting ${platformName}...` : 'Scouting...';
+  }
+
   const currentRoles = (state.preferences && state.preferences.target_roles) ? state.preferences.target_roles : [];
-  appendScoutLog(`[START] Multi-platform discovery sweep launched strictly for ${currentRoles.length} target keyword(s): [${currentRoles.join(', ')}]...`);
-  showToast('Live discovery sweep launched...', 'info');
+  const logPrefix = selectedPlatform ? `[TARGETED: ${platformName.toUpperCase()}]` : '[MULTI-PLATFORM]';
+  appendScoutLog(`${logPrefix} Discovery sweep launched for ${currentRoles.length} target keyword(s)...`);
+  showToast(`🔍 Discovering recent related jobs on ${platformName}...`, 'info');
 
   try {
+    const payload = {
+      roles: currentRoles,
+      max_age_hours: 24
+    };
+    if (selectedPlatform) {
+      payload.platform = selectedPlatform;
+    }
+
     const res = await fetch('/api/scout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        roles: currentRoles,
-        max_age_hours: 24 
-      })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
 
     if (res.ok && data.success) {
       const s = data.summary;
-      appendScoutLog(`[COMPLETE] Discovered ${s.new_unique_jobs} new unique jobs from ${s.total_fetched} total parsed listings.`);
-      appendScoutLog(`[MATCHES] ${s.qualified_matches} qualified listings matched your profile threshold (≥${s.threshold}%).`);
-      showToast(`Sweep complete: ${s.new_unique_jobs} new jobs added to database!`, 'success');
-      fetchStats();
-      fetchJobs();
+      appendScoutLog(`[COMPLETE] Discovered ${s.new_unique_jobs} new unique jobs from ${s.total_fetched} listings parsed on ${platformName}.`);
+      appendScoutLog(`[MATCHES] ${s.qualified_matches} qualified listings matched profile threshold (≥${s.threshold}%).`);
+
+      showToast(`🎉 Sweep complete for ${platformName}: ${s.new_unique_jobs} new jobs discovered! Displaying all recent related jobs.`, 'success');
+
+      // If a specific platform was swept, lock filter to that platform and display results
+      if (selectedPlatform) {
+        state.filters.platform = selectedPlatform;
+        if (DOM.filterPlatform) DOM.filterPlatform.value = selectedPlatform;
+        if (DOM.scoutTargetPlatform) DOM.scoutTargetPlatform.value = selectedPlatform;
+        updateScoutButtonLabel();
+        switchView('jobs');
+      }
+
+      await fetchStats();
+      await fetchJobs();
     } else {
-      appendScoutLog(`[ERROR] Discovery sweep encountered issues.`);
+      appendScoutLog(`[ERROR] Discovery sweep encountered issues on ${platformName}.`);
       showToast('Scout sweep failed', 'error');
     }
   } catch (err) {
@@ -818,7 +886,7 @@ async function triggerLiveScout() {
   } finally {
     DOM.btnQuickScout.disabled = false;
     DOM.btnRunScoutFull.disabled = false;
-    DOM.btnQuickScout.querySelector('span:last-child').textContent = 'Run Discovery Sweep';
+    updateScoutButtonLabel();
   }
 }
 
@@ -1179,8 +1247,19 @@ async function fetchPlatforms() {
 
     renderPlatforms(state.platforms);
     renderScoutProviders(state.platforms);
+    updatePlatformDropdowns(state.platforms);
   } catch (err) {
     console.error('Failed to load platforms:', err);
+  }
+}
+
+function updatePlatformDropdowns(platforms) {
+  if (DOM.scoutTargetPlatform) {
+    const curVal = DOM.scoutTargetPlatform.value;
+    const optionsHtml = `<option value="">All Enabled Platforms (30+)</option>` +
+      platforms.map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.display_name)}</option>`).join('');
+    DOM.scoutTargetPlatform.innerHTML = optionsHtml;
+    if (curVal) DOM.scoutTargetPlatform.value = curVal;
   }
 }
 
@@ -1242,9 +1321,20 @@ function renderScoutProviders(platforms) {
         <span style="font-weight: 500;">${escapeHtml(p.display_name)}</span>
         <span style="font-family: var(--font-mono); font-size: 11px; color: var(--color-text-subtle);">(${p.type})</span>
       </div>
-      <span class="badge ${p.enabled ? 'badge-success' : ''}">${p.enabled ? 'ACTIVE' : 'OFFLINE'}</span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="badge ${p.enabled ? 'badge-success' : ''}">${p.enabled ? 'ACTIVE' : 'OFFLINE'}</span>
+        <button class="button button-secondary button-sm btn-sweep-provider" data-platform="${escapeHtml(p.name)}" style="padding: 2px 8px; font-size: 11px;" title="Trigger discovery sweep for ${escapeHtml(p.display_name)}">
+          ▶ Sweep
+        </button>
+      </div>
     </div>
   `).join('');
+
+  DOM.scoutProviderList.querySelectorAll('.btn-sweep-provider').forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerLiveScout(btn.dataset.platform);
+    });
+  });
 }
 
 async function addCustomPlatform() {
@@ -1325,8 +1415,18 @@ function initEventListeners() {
 
   DOM.filterPlatform.addEventListener('change', () => {
     state.filters.platform = DOM.filterPlatform.value;
+    if (DOM.scoutTargetPlatform) DOM.scoutTargetPlatform.value = DOM.filterPlatform.value;
+    updateScoutButtonLabel();
     fetchJobs();
   });
+
+  if (DOM.scoutTargetPlatform) {
+    DOM.scoutTargetPlatform.addEventListener('change', () => {
+      state.filters.platform = DOM.scoutTargetPlatform.value;
+      if (DOM.filterPlatform) DOM.filterPlatform.value = DOM.scoutTargetPlatform.value;
+      updateScoutButtonLabel();
+    });
+  }
 
   DOM.filterScore.addEventListener('change', () => {
     state.filters.score = DOM.filterScore.value;
@@ -1341,9 +1441,11 @@ function initEventListeners() {
   DOM.btnResetFilters.addEventListener('click', () => {
     DOM.filterSearch.value = '';
     DOM.filterPlatform.value = '';
+    if (DOM.scoutTargetPlatform) DOM.scoutTargetPlatform.value = '';
     DOM.filterScore.value = '';
     DOM.filterStatus.value = '';
     state.filters = { search: '', platform: '', score: '', status: '' };
+    updateScoutButtonLabel();
     fetchJobs();
   });
 

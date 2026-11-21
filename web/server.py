@@ -558,7 +558,7 @@ async def api_toggle_platform(request: Request) -> JSONResponse:
 
 
 async def api_trigger_scout(request: Request) -> JSONResponse:
-    """Trigger a live multi-platform discovery sweep."""
+    """Trigger a live multi-platform or platform-targeted discovery sweep."""
     try:
         body = await request.json()
     except Exception:
@@ -571,13 +571,21 @@ async def api_trigger_scout(request: Request) -> JSONResponse:
 
     locations = body.get("locations")
     max_age_hours = body.get("max_age_hours", 24)
+    platform = body.get("platform")
+    platforms = body.get("platforms")
 
     summary = await aggregator.run_discovery_cycle(
         roles=roles,
         locations=locations,
-        max_age_hours=max_age_hours
+        max_age_hours=max_age_hours,
+        platform=platform,
+        platforms=platforms
     )
-    return JSONResponse({"success": True, "summary": summary})
+    return JSONResponse({
+        "success": True,
+        "summary": summary,
+        "selected_platform": platform
+    })
 
 
 async def api_get_target_roles(request: Request) -> JSONResponse:

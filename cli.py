@@ -35,25 +35,31 @@ def cli():
 
 @cli.command()
 @click.option("--roles", "-r", multiple=True, help="Override target roles for this sweep")
+@click.option("--platform", "-p", help="Target a specific career platform (e.g. sprout, hirist, devfolio, ats_direct, linkedin)")
 @click.option("--age", "-a", default=24, help="Max job age in hours (default 24)")
-def scout(roles, age):
-    """Run an instant live discovery sweep across all enabled career platforms."""
+def scout(roles, platform, age):
+    """Run an instant live discovery sweep across all or a targeted career platform."""
     db = DatabaseManager()
     profile_mgr = ProfileManager()
     aggregator = JobAggregator(db, profile_mgr)
 
     target_roles = list(roles) if roles else None
+    target_platform_str = platform.strip().lower() if platform else None
 
     console.print(Panel.fit(
         f"[bold cyan]🔍 Initiating Real-Time Job Discovery Sweep[/bold cyan]\n"
         f"Target Roles: {target_roles or profile_mgr.preferences.target_roles}\n"
-        f"Platforms: {list(profile_mgr.preferences.platforms.keys())}",
+        f"Platform: [bold green]{target_platform_str or 'All Enabled Platforms'}[/bold green]",
         border_style="cyan"
     ))
 
     async def _run():
-        with console.status("[bold green]Scouting platforms...[/bold green]"):
-            summary = await aggregator.run_discovery_cycle(roles=target_roles, max_age_hours=age)
+        with console.status(f"[bold green]Scouting {target_platform_str or 'platforms'}...[/bold green]"):
+            summary = await aggregator.run_discovery_cycle(
+                roles=target_roles,
+                max_age_hours=age,
+                platform=target_platform_str
+            )
         return summary
 
     summary = asyncio.run(_run())

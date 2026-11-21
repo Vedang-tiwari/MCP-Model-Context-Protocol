@@ -234,8 +234,23 @@ class DatabaseManager:
                 conditions.append("status = ?")
                 params.append(status.value)
             if platform:
-                conditions.append("platform = ?")
-                params.append(platform)
+                clean_p = platform.lower().strip()
+                if clean_p in ["greenhouse", "lever", "ashby"]:
+                    conditions.append("(LOWER(platform) = ? OR (LOWER(platform) = 'ats_direct' AND metadata LIKE ?))")
+                    params.extend([clean_p, f"%{clean_p}%"])
+                elif clean_p in ["ats_direct", "direct_ats", "ats"]:
+                    conditions.append("LOWER(platform) IN ('ats_direct', 'greenhouse', 'lever', 'ashby')")
+                elif clean_p in ["ai-job.net", "aijobnet"]:
+                    conditions.append("LOWER(platform) IN ('ai-job.net', 'aijobnet')")
+                elif clean_p in ["beep", "beep_ai"]:
+                    conditions.append("LOWER(platform) IN ('beep', 'beep_ai')")
+                elif clean_p in ["mljobsinfo", "ml-jobs.info"]:
+                    conditions.append("LOWER(platform) IN ('mljobsinfo', 'ml-jobs.info')")
+                elif clean_p in ["aijobsai", "aijobs.ai"]:
+                    conditions.append("LOWER(platform) IN ('aijobsai', 'aijobs.ai')")
+                else:
+                    conditions.append("LOWER(platform) = ?")
+                    params.append(clean_p)
             if min_match_score is not None:
                 conditions.append("match_score >= ?")
                 params.append(min_match_score)

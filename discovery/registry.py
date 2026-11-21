@@ -93,7 +93,11 @@ class PlatformRegistry:
         self.custom_configs.clear()
 
         # 1. Register Core Built-In Providers
-        self.providers["ats_direct"] = ATSDirectProvider()
+        ats_provider = ATSDirectProvider()
+        self.providers["ats_direct"] = ats_provider
+        self.providers["greenhouse"] = ats_provider
+        self.providers["lever"] = ats_provider
+        self.providers["ashby"] = ats_provider
         self.providers["linkedin"] = LinkedInProvider()
         self.providers["indeed"] = IndeedProvider()
         self.providers["wellfound"] = WellfoundProvider()
