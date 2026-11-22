@@ -1,5 +1,6 @@
 """Local Web Server and REST API backend for MCP Autonomous Job Scout & Application System."""
 import os
+import re
 import json
 import logging
 from pathlib import Path
@@ -26,6 +27,7 @@ from applicator.browser import BrowserSessionManager
 from applicator.form_filler import ApplicationAgent
 from applicator.hitl import HITLNotifier
 from core.resume_tailor_agent import ResumeTailorAgent
+from core.resume_docx_renderer import ResumeDocxRenderer
 
 logger = logging.getLogger("mcp.web")
 
@@ -43,6 +45,7 @@ hitl = HITLNotifier()
 session_mgr = BrowserSessionManager()
 agent = ApplicationAgent(db, profile_mgr, session_mgr, hitl)
 tailor_agent = ResumeTailorAgent(profile_mgr=profile_mgr)
+docx_renderer = ResumeDocxRenderer()
 
 
 # -----------------------------------------------------------------------------
@@ -441,6 +444,7 @@ async def api_tailor_job_resume(request: Request) -> JSONResponse:
         # Update metadata in database
         meta_updates = {
             "tailored_resume_pdf": artifacts.pdf_path,
+            "tailored_resume_docx": artifacts.docx_path,
             "tailored_resume_text": artifacts.text_path,
             "tailored_cover_letter": artifacts.cover_letter,
             "tailored_summary": artifacts.summary,
@@ -455,7 +459,7 @@ async def api_tailor_job_resume(request: Request) -> JSONResponse:
                 job_id,
                 ApplicationStatus.TAILORED,
                 actor="ResumeTailorAgent",
-                evidence=artifacts.pdf_path or artifacts.text_path,
+                evidence=artifacts.docx_path or artifacts.pdf_path or artifacts.text_path,
                 notes=f"Tailored resume generated. Audit: {'PASSED' if artifacts.audit_passed else 'VIOLATIONS'}"
             )
 
@@ -466,6 +470,165 @@ async def api_tailor_job_resume(request: Request) -> JSONResponse:
     except Exception as e:
         logger.error(f"Tailoring failed for job '{job_id}': {e}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_get_template_resume(request: Request) -> JSONResponse:
+    """Return the official candidate resume template data and structure."""
+    data = docx_renderer.get_default_template_data()
+    return JSONResponse({
+        "success": True,
+        "template_name": "mcp-resume-template.docx",
+        "candidate_name": data.get("full_name"),
+        "template_data": data
+    })
+
+
+async def api_download_template_resume(request: Request) -> Response:
+    """Download the official blank/base candidate Word resume template."""
+    tmpl_path = Path("data/templates/mcp-resume-template.docx")
+    if not tmpl_path.exists():
+        docx_renderer._ensure_template_exists()
+    return FileResponse(
+        str(tmpl_path),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename="mcp-resume-template.docx"
+    )
+
+
+async def api_get_job_custom_resume(request: Request) -> JSONResponse:
+    """Fetch current customized or tailored resume data for a specific job."""
+    job_id = request.path_params["job_id"]
+    job = db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": f"Job '{job_id}' not found."}, status_code=404)
+
+    # 1. Check if previously customized by user
+    custom_saved = job.metadata.get("custom_resume") if isinstance(job.metadata, dict) else None
+    if custom_saved:
+        return JSONResponse({
+            "job_id": job.id,
+            "job_title": job.title,
+            "company": job.company,
+            "match_score": job.match_score,
+            "is_customized": True,
+            "resume_data": custom_saved,
+            "docx_url": f"/api/jobs/{job.id}/custom-resume/download",
+            "cover_letter": job.metadata.get("tailored_cover_letter", "")
+        })
+
+    # 2. Check if already tailored by agent
+    tailored_summary = job.metadata.get("tailored_summary") if isinstance(job.metadata, dict) else None
+    cover_letter = job.metadata.get("tailored_cover_letter", "") if isinstance(job.metadata, dict) else ""
+
+    if not tailored_summary:
+        try:
+            artifacts = await tailor_agent.tailor_for_job(job, generate_pdf=False)
+            db.update_job_metadata(job.id, {
+                "tailored_summary": artifacts.summary,
+                "tailored_cover_letter": artifacts.cover_letter,
+                "tailored_resume_docx": artifacts.docx_path,
+                "tailored_resume_text": artifacts.text_path
+            })
+            tailored_summary = artifacts.summary
+            cover_letter = artifacts.cover_letter
+        except Exception as e:
+            logger.warning(f"Initial tailoring draft fallback for {job.id}: {e}")
+            tailored_summary = None
+
+    base_data = docx_renderer.get_default_template_data()
+    if tailored_summary:
+        base_data["objective"] = tailored_summary
+
+    return JSONResponse({
+        "job_id": job.id,
+        "job_title": job.title,
+        "company": job.company,
+        "match_score": job.match_score,
+        "is_customized": False,
+        "resume_data": base_data,
+        "docx_url": f"/api/jobs/{job.id}/custom-resume/download",
+        "cover_letter": cover_letter
+    })
+
+
+async def api_save_job_custom_resume(request: Request) -> JSONResponse:
+    """Save user's manual edits to a resume for a specific job and regenerate .docx and .txt."""
+    job_id = request.path_params["job_id"]
+    job = db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": f"Job '{job_id}' not found."}, status_code=404)
+
+    try:
+        body = await request.json()
+        resume_data = body.get("resume_data") or body
+        cover_letter = body.get("cover_letter") or resume_data.get("cover_letter", "")
+
+        safe_comp = re.sub(r'[^a-zA-Z0-9_]', '', job.company.replace(" ", "_"))
+        safe_role = re.sub(r'[^a-zA-Z0-9_]', '', job.title.replace(" ", "_"))
+        base_name = f"custom_Vedang_Tiwari_{safe_comp}_{safe_role}_{job.id[:8]}"
+
+        docx_path = f"data/artifacts/{base_name}.docx"
+        txt_path = f"data/artifacts/{base_name}.txt"
+
+        rendered_docx = docx_renderer.render(resume_data, docx_path)
+        plain_text = docx_renderer.render_plain_text(resume_data)
+        Path(txt_path).write_text(plain_text, encoding="utf-8")
+
+        meta_updates = {
+            "custom_resume": resume_data,
+            "custom_resume_docx": rendered_docx,
+            "custom_resume_text": txt_path,
+            "tailored_summary": resume_data.get("objective", ""),
+            "tailored_cover_letter": cover_letter,
+            "custom_resume_updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        db.update_job_metadata(job_id, meta_updates)
+
+        if job.status in [ApplicationStatus.DISCOVERED, ApplicationStatus.SHORTLISTED, ApplicationStatus.FILTERED_OUT]:
+            db.update_job_status(
+                job_id,
+                ApplicationStatus.TAILORED,
+                actor="User (Manual Resume Edit)",
+                evidence=rendered_docx,
+                notes=f"User customized resume for '{job.title}' at '{job.company}'"
+            )
+
+        return JSONResponse({
+            "success": True,
+            "message": f"Custom resume saved and generated for '{job.title}' at '{job.company}'.",
+            "docx_url": f"/api/jobs/{job.id}/custom-resume/download",
+            "docx_path": rendered_docx,
+            "text_path": txt_path
+        })
+    except Exception as e:
+        logger.error(f"Error saving custom resume for {job_id}: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def api_download_job_custom_resume(request: Request) -> Response:
+    """Download the customized Word (.docx) resume for a specific job."""
+    job_id = request.path_params["job_id"]
+    job = db.get_job(job_id)
+    if not job:
+        return JSONResponse({"error": "Job not found"}, status_code=404)
+
+    docx_path = None
+    if isinstance(job.metadata, dict):
+        docx_path = job.metadata.get("custom_resume_docx") or job.metadata.get("tailored_resume_docx")
+
+    if not docx_path or not Path(docx_path).exists():
+        base_data = docx_renderer.get_default_template_data()
+        safe_comp = re.sub(r'[^a-zA-Z0-9_]', '', job.company.replace(" ", "_"))
+        safe_role = re.sub(r'[^a-zA-Z0-9_]', '', job.title.replace(" ", "_"))
+        docx_path = f"data/artifacts/Vedang_Tiwari_{safe_comp}_{safe_role}.docx"
+        docx_renderer.render(base_data, docx_path)
+
+    p = Path(docx_path)
+    return FileResponse(
+        str(p),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename=p.name
+    )
 
 
 async def api_tailor_custom_resume(request: Request) -> JSONResponse:
@@ -657,6 +820,33 @@ async def api_delete_target_role(request: Request) -> JSONResponse:
     })
 
 
+async def api_purge_ghost_jobs(request: Request) -> JSONResponse:
+    """Purge ghost, dummy, and stale job postings from the database."""
+    try:
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+
+        dry_run = bool(body.get("dry_run", False))
+        keep_stale = bool(body.get("keep_stale", False))
+        hard_delete = bool(body.get("hard_delete", True))
+
+        result = db.purge_ghost_jobs(
+            hard_delete=hard_delete,
+            dry_run=dry_run,
+            purge_stale=not keep_stale
+        )
+        return JSONResponse({
+            "success": True,
+            "message": f"Successfully purged {result['purged_count']} ghost jobs." if not dry_run else f"Identified {result['ghost_jobs_found']} ghost jobs.",
+            **result
+        })
+    except Exception as e:
+        logger.error(f"Error purging ghost jobs: {e}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 async def api_system_info(request: Request) -> JSONResponse:
     """Return system configuration and baseline model details."""
     db_file = Path(settings.DATABASE_PATH)
@@ -683,9 +873,15 @@ routes = [
     Route("/api/stats", api_stats, methods=["GET"]),
     Route("/api/jobs", api_list_jobs, methods=["GET"]),
     Route("/api/jobs/{job_id}", api_get_job, methods=["GET"]),
+    Route("/api/jobs/purge-ghosts", api_purge_ghost_jobs, methods=["POST"]),
     Route("/api/jobs/{job_id}/evaluate", api_evaluate_job, methods=["POST"]),
     Route("/api/jobs/{job_id}/apply", api_apply_job, methods=["POST"]),
     Route("/api/jobs/{job_id}/tailor", api_tailor_job_resume, methods=["POST"]),
+    Route("/api/jobs/{job_id}/custom-resume", api_get_job_custom_resume, methods=["GET"]),
+    Route("/api/jobs/{job_id}/custom-resume", api_save_job_custom_resume, methods=["POST"]),
+    Route("/api/jobs/{job_id}/custom-resume/download", api_download_job_custom_resume, methods=["GET"]),
+    Route("/api/template/resume", api_get_template_resume, methods=["GET"]),
+    Route("/api/template/resume/download", api_download_template_resume, methods=["GET"]),
     Route("/api/jobs/{job_id}/apply-status", api_job_apply_status, methods=["GET"]),
     Route("/api/jobs/{job_id}/history", api_job_history, methods=["GET"]),
     Route("/api/jobs/batch-apply", api_batch_apply_jobs, methods=["POST"]),
