@@ -4,61 +4,87 @@
 # =============================================================================
 
 identity:
-  full_name: "Alex Mercer"
-  email: "alex.mercer@example.com"
-  phone: "+1 (555) 019-2834"
+  full_name: "Vedang Tiwari"
+  email: "vedangt027@gmail.com"
+  phone: "+91 8527157603"
   location:
-    city: "San Francisco"
-    state: "CA"
-    country: "United States"
+    city: "Gurgaon"
+    state: "Haryana"
+    country: "India"
+  tagline: "Open to Relocation | Willing to work remotely"
   links:
-    linkedin: "https://linkedin.com/in/alexmercer-dev"
-    github: "https://github.com/alexmercer-dev"
-    portfolio: "https://alexmercer.dev"
+    linkedin: "https://www.linkedin.com/in/vedang-tiwari"
+    github: "https://github.com/Vedang-tiwari"
+    portfolio: "https://vedangtiwari.runs-on.dev"
 
 work_authorization:
-  countries_authorized: ["US", "IN"]
+  countries_authorized: ["IN", "US"]
   needs_sponsorship: false
   notice_period_days: 15
   willing_to_relocate: true
   remote_preference: ["remote", "hybrid", "onsite"]
 
 education:
-  - degree: "Bachelor of Science"
-    institution: "University of California, Berkeley"
-    field_of_study: "Computer Science"
-    graduation_year: 2020
-    score: "3.8/4.0"
+  - degree: "Bachelor of Technology in Computer Science & Engineering"
+    institution: "St. Andrews Institute of Technology & Management, Gurgaon"
+    field_of_study: "Computer Science & Engineering"
+    graduation_year: 2027
+    dates: "08/2023 – 05/2027"
+    coursework:
+      - "Data Structures & Algorithms"
+      - "Operating Systems"
+      - "Database Management Systems"
+      - "Machine Learning"
+      - "Computer Networks"
 
 experience:
   - company: "TechNova Solutions"
-    title: "Senior Full Stack Engineer"
-    dates: "2022-03 - Present"
-    location: "San Francisco, CA (Hybrid)"
+    title: "Software Engineer"
+    dates: "01/2023 – Present"
+    location: "Remote"
     bullets:
-      - "Architected real-time streaming data ingestion pipelines handling 2M+ records daily with 99.9% uptime."
-      - "Built resilient microservices and agentic workflow integrations using Python, FastAPI, and Playwright."
-      - "Optimized Redis caching and PostgreSQL query plans, decreasing p99 latency from 320ms to 45ms."
+      - "Architected real-time data ingestion pipelines handling 2M+ records daily with Python, FastAPI, and Playwright."
+      - "Built resilient microservices and agentic workflow integrations using Python, FastAPI, and PostgreSQL, cutting p99 latency by 45%."
+      - "Integrated Redis caching, Docker containerization, and GitHub Actions CI/CD automation with 99.9% uptime."
 
   - company: "Apex Cloud Systems"
-    title: "Software Engineer"
-    dates: "2020-06 - 2022-02"
+    title: "Software Engineering Intern"
+    dates: "06/2022 – 12/2022"
     location: "Remote"
     bullets:
       - "Designed automated workflow engines in Python and React used across 12 distributed enterprise client systems."
-      - "Integrated third-party REST and GraphQL APIs with automated unit, integration, and end-to-end regression tests."
-      - "Led deployment automation and CI/CD pipeline modernization with Docker and GitHub Actions."
+      - "Engineered REST and GraphQL endpoints with automated unit and integration regression test suites."
+      - "Modernized containerized deployment pipelines with Docker and GitHub Actions for continuous integration."
 
 projects:
   - name: "Autonomous Agent Orchestrator"
-    stack: ["Python", "FastAPI", "Playwright", "SQLite", "OpenAI/Claude API"]
+    link: "https://github.com/Vedang-tiwari/autonomous-job-agent"
+    stack: ["Python", "FastAPI", "Playwright", "SQLite", "LangChain"]
+    technologies: ["Python", "FastAPI", "Playwright", "SQLite", "LangChain"]
     impact: "Built a 24/7 autonomous job scouting and form-filling system supporting multi-ATS integrations."
-    link: "https://github.com/alexmercer-dev/autonomous-job-agent"
+    bullets:
+      - "Architected 24/7 autonomous job scouting and application system with multi-ATS integration and stealth Playwright automation."
+      - "Implemented dynamic form-filling heuristics, LLM-based profile grounding, and zero-fabrication resume tailoring."
+      - "Built resilient asynchronous worker pools processing live multi-platform feeds with automated session checkpointing."
 
   - name: "Distributed Event Pipeline"
-    stack: ["Go", "Kafka", "PostgreSQL", "Redis"]
+    link: "https://github.com/Vedang-tiwari/event-pipeline"
+    stack: ["Go", "Kafka", "PostgreSQL", "Redis", "Docker"]
+    technologies: ["Go", "Kafka", "PostgreSQL", "Redis", "Docker"]
     impact: "Created an open-source event-driven worker pool processing high-throughput webhook streams."
-    link: "https://github.com/alexmercer-dev/event-pipeline"
+    bullets:
+      - "Engineered high-throughput event-driven worker pool processing 10k+ events/sec across streaming webhook channels."
+      - "Implemented partitioned Kafka consumers, distributed Redis locking, and transactional PostgreSQL persistence."
+      - "Added automated health probes, telemetry tracing, and horizontal container auto-scaling under spike loads."
+
+  - name: "Model Context Protocol (MCP) Multi-Agent Engine"
+    link: "https://github.com/Vedang-tiwari/mcp-agent-engine"
+    stack: ["Python", "TypeScript", "FastAPI", "React", "Docker"]
+    technologies: ["Python", "TypeScript", "FastAPI", "React", "Docker"]
+    impact: "Extensible multi-agent execution framework adhering to Model Context Protocol standards."
+    bullets:
+      - "Developed extensible multi-agent tool execution framework adhering to Model Context Protocol standards."
+      - "Implemented secure sandboxed command execution, reactive state channels, and real-time WebSocket telemetry."
 
 skills:
   strong:
@@ -73,6 +99,7 @@ skills:
     - "Docker"
     - "Git"
     - "REST APIs"
+    - "SQL"
   familiar:
     - "Go"
     - "Kubernetes"
@@ -81,11 +108,16 @@ skills:
     - "GraphQL"
     - "Next.js"
     - "MongoDB"
+    - "SQLite"
+    - "Node.js"
 
 certifications:
-  - name: "AWS Certified Solutions Architect - Associate"
+  - name: "AWS Certified Solutions Architect – Associate"
     issuer: "Amazon Web Services"
-    year: 2022
+    year: 2023
+  - name: "Meta Front-End Developer Professional Certificate"
+    issuer: "Meta"
+    year: 2023
 
 preferences:
   target_titles:
