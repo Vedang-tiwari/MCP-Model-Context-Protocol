@@ -72,14 +72,23 @@
       </div>
 
       <!-- Stat Cards -->
-      <div class="stat-grid">
+      <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
         <div class="stat-card" data-filter-status="">
           <div class="stat-label">
             <span>TOTAL DISCOVERED</span>
-            <span class="badge">24H</span>
+            <span class="badge">ACTIVE</span>
           </div>
           <div class="stat-value tabular-nums" id="stat-total-discovered">0</div>
           <div class="stat-meta">Indexed across all enabled platforms</div>
+        </div>
+
+        <div class="stat-card" id="card-filter-fresh" data-filter-fresh="true" style="cursor: pointer; border-color: rgba(56, 189, 248, 0.3);">
+          <div class="stat-label">
+            <span style="color: #38bdf8; font-weight: 600;">🔥 FRESH (≤ 24H)</span>
+            <span class="badge badge-fresh">PRIOR BASE</span>
+          </div>
+          <div class="stat-value tabular-nums" id="stat-fresh-jobs" style="color: #38bdf8;">0</div>
+          <div class="stat-meta">Top priority postings (≤ 24 hrs old)</div>
         </div>
 
         <div class="stat-card" data-filter-min-score="70">
@@ -179,6 +188,22 @@
           <option value="APPLIED">Applied</option>
           <option value="MANUAL_REVIEW">Manual Review</option>
         </select>
+
+        <select class="select filter-select" id="filter-sort" title="Order postings by freshness or match score" style="font-weight: 500;">
+          <option value="fresh_first" selected>🔥 Fresh (≤ 24h) First</option>
+          <option value="fresh_only">⚡ Fresh (≤ 24h) Only</option>
+          <option value="score_desc">Match Score (High → Low)</option>
+          <option value="newest">Newest Discovered</option>
+        </select>
+
+        <button 
+          class="button button-secondary button-sm" 
+          id="btn-toggle-fresh" 
+          title="Toggle filter: Show strictly postings from the last 24 hours"
+          style="white-space: nowrap;"
+        >
+          🔥 Fresh (≤ 24h) Only
+        </button>
 
         <button class="button button-secondary button-sm" id="btn-reset-filters">Reset</button>
         <button 

@@ -72,6 +72,7 @@ async def api_stats(request: Request) -> JSONResponse:
         "total_discovered": metrics.get("total_discovered", 0),
         "total_applied": metrics.get("total_applied", 0),
         "high_match_count": len(high_match_jobs),
+        "fresh_jobs_count": metrics.get("fresh_jobs_count", 0),
         "threshold_percent": threshold,
         "status_breakdown": metrics.get("status_breakdown", {}),
         "platform_breakdown": metrics.get("platform_breakdown", {}),
@@ -80,23 +81,30 @@ async def api_stats(request: Request) -> JSONResponse:
 
 
 async def api_list_jobs(request: Request) -> JSONResponse:
-    """List discovered jobs with search, platform, score, and status filters."""
+    """List discovered jobs with search, platform, score, freshness, and status filters."""
     query_params = request.query_params
     search = query_params.get("q", "").strip().lower()
     platform = query_params.get("platform")
     status_str = query_params.get("status")
     min_score_str = query_params.get("min_score")
+    fresh_only_param = query_params.get("fresh_only", "").lower()
+    fresh_only = fresh_only_param in ("true", "1", "yes")
+    sort_by = query_params.get("sort_by", "fresh_first")
+    if sort_by == "fresh_only":
+        fresh_only = True
     limit = int(query_params.get("limit", 100))
 
     status_filter = ApplicationStatus(status_str) if status_str else None
     min_score = int(min_score_str) if min_score_str and min_score_str.isdigit() else None
 
-    # Fetch candidate jobs
+    # Fetch candidate jobs with fresh <= 24h prioritized on first place
     raw_jobs = db.list_jobs(
         status=status_filter,
         platform=platform,
         limit=500,
-        min_match_score=min_score
+        min_match_score=min_score,
+        fresh_only=fresh_only,
+        prioritize_fresh=True
     )
 
     # Perform text search filtering if specified
@@ -106,9 +114,34 @@ async def api_list_jobs(request: Request) -> JSONResponse:
             text = f"{j.title} {j.company} {j.location} {j.salary or ''} {j.description or ''}".lower()
             if search in text:
                 filtered.append(j)
-        jobs = filtered[:limit]
+        jobs = filtered
     else:
-        jobs = raw_jobs[:limit]
+        jobs = raw_jobs
+
+    if fresh_only:
+        jobs = [j for j in jobs if j.is_fresh_24h]
+
+    # Ordering: Keep fresh jobs (<= 24 hrs) strictly on first place
+    if sort_by in ("fresh_first", "fresh_only"):
+        jobs = sorted(
+            jobs,
+            key=lambda j: (1 if j.is_fresh_24h else 0, j.match_score or 0, -j.age_hours),
+            reverse=True
+        )
+    elif sort_by == "score_desc":
+        jobs = sorted(
+            jobs,
+            key=lambda j: (j.match_score or 0, 1 if j.is_fresh_24h else 0, -j.age_hours),
+            reverse=True
+        )
+    elif sort_by == "newest":
+        jobs = sorted(
+            jobs,
+            key=lambda j: -j.age_hours,
+            reverse=True
+        )
+
+    jobs = jobs[:limit]
 
     output = []
     for j in jobs:
@@ -125,11 +158,19 @@ async def api_list_jobs(request: Request) -> JSONResponse:
             "match_score": j.match_score,
             "match_reasons": j.match_reasons or [],
             "status": j.status.value,
+            "posted_at": j.posted_at.isoformat() if j.posted_at else None,
             "discovered_at": j.discovered_at.isoformat() if j.discovered_at else None,
+            "is_fresh": j.is_fresh_24h,
+            "age_hours": round(j.age_hours, 1),
+            "age_display": j.age_display,
             "description_snippet": (j.description or "")[:280]
         })
 
-    return JSONResponse({"count": len(output), "jobs": output})
+    return JSONResponse({
+        "count": len(output),
+        "fresh_count": sum(1 for item in output if item["is_fresh"]),
+        "jobs": output
+    })
 
 
 async def api_get_job(request: Request) -> JSONResponse:
@@ -264,6 +305,9 @@ async def api_batch_apply_jobs(request: Request) -> JSONResponse:
 
     if not jobs_to_apply:
         return JSONResponse({"error": "No eligible jobs found to apply.", "total": 0}, status_code=400)
+
+    # Prioritize fresh jobs (<= 24 hours) on first place
+    jobs_to_apply.sort(key=lambda j: (1 if j.is_fresh_24h else 0, j.match_score or 0, -j.age_hours), reverse=True)
 
     if async_mode:
         asyncio.create_task(agent.batch_apply(jobs_to_apply, auto_submit=auto_submit, max_concurrency=max_concurrency))

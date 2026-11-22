@@ -16,7 +16,9 @@ const state = {
     search: '',
     platform: '',
     score: '',
-    status: ''
+    status: '',
+    freshOnly: false,
+    sortBy: 'fresh_first'
   }
 };
 
@@ -30,6 +32,8 @@ const DOM = {
   
   // Stats
   statTotalDiscovered: document.getElementById('stat-total-discovered'),
+  statFreshJobs: document.getElementById('stat-fresh-jobs'),
+  cardFilterFresh: document.getElementById('card-filter-fresh'),
   statHighMatch: document.getElementById('stat-high-match'),
   statTotalApplied: document.getElementById('stat-total-applied'),
   statActivePlatforms: document.getElementById('stat-active-platforms'),
@@ -39,6 +43,8 @@ const DOM = {
   filterPlatform: document.getElementById('filter-platform'),
   filterScore: document.getElementById('filter-score'),
   filterStatus: document.getElementById('filter-status'),
+  filterSort: document.getElementById('filter-sort'),
+  btnToggleFresh: document.getElementById('btn-toggle-fresh'),
   btnResetFilters: document.getElementById('btn-reset-filters'),
   btnPurgeGhosts: document.getElementById('btn-purge-ghosts'),
   btnBatchApplySubmit: document.getElementById('btn-batch-apply-submit'),
@@ -260,6 +266,7 @@ async function fetchStats() {
     state.stats = data;
 
     DOM.statTotalDiscovered.textContent = data.total_discovered || 0;
+    if (DOM.statFreshJobs) DOM.statFreshJobs.textContent = data.fresh_jobs_count || 0;
     DOM.statHighMatch.textContent = data.high_match_count || 0;
     DOM.statTotalApplied.textContent = data.total_applied || 0;
     DOM.badgeTotalJobs.textContent = data.total_discovered || 0;
@@ -284,6 +291,8 @@ async function fetchJobs() {
     if (state.filters.platform) params.append('platform', state.filters.platform);
     if (state.filters.score) params.append('min_score', state.filters.score);
     if (state.filters.status) params.append('status', state.filters.status);
+    if (state.filters.freshOnly) params.append('fresh_only', 'true');
+    if (state.filters.sortBy) params.append('sort_by', state.filters.sortBy);
 
     const res = await fetch(`/api/jobs?${params.toString()}`);
     if (!res.ok) return;
@@ -338,6 +347,7 @@ function renderJobsList(jobs) {
         <div class="job-primary">
           <div class="job-title-line">
             <span class="job-title" title="${escapeHtml(j.title)}">${escapeHtml(j.title)}</span>
+            ${j.is_fresh ? `<span class="badge badge-fresh" title="Top Priority: Posted ${escapeHtml(j.age_display || '< 24h ago')}">🔥 Fresh (${escapeHtml(j.age_display || '< 24h')})</span>` : ''}
             <span class="badge ${statusBadgeClass}">${j.status}</span>
             ${j.is_easy_apply ? '<span class="badge" title="1-Click Easy Apply">⚡ Fast</span>' : ''}
           </div>
@@ -347,6 +357,12 @@ function renderJobsList(jobs) {
             <span>${escapeHtml(j.location || 'Remote')}</span>
             <span>·</span>
             <span style="font-family: var(--font-mono); font-size: 11px;">${escapeHtml(j.platform)}</span>
+            ${j.age_display ? `
+              <span>·</span>
+              <span title="Posting Age" style="color: ${j.is_fresh ? '#38bdf8' : 'var(--color-text-subtle)'}; font-size: 11px; font-weight: ${j.is_fresh ? '600' : 'normal'};">
+                🕒 ${escapeHtml(j.age_display)}
+              </span>
+            ` : ''}
             ${j.salary ? `
               <span>·</span>
               <span class="badge badge-salary tabular-nums" title="Compensation Package">
@@ -1812,13 +1828,60 @@ function initEventListeners() {
     fetchJobs();
   });
 
+  if (DOM.filterSort) {
+    DOM.filterSort.addEventListener('change', () => {
+      state.filters.sortBy = DOM.filterSort.value;
+      if (DOM.filterSort.value === 'fresh_only') {
+        state.filters.freshOnly = true;
+        if (DOM.btnToggleFresh) {
+          DOM.btnToggleFresh.classList.remove('button-secondary');
+          DOM.btnToggleFresh.classList.add('button-primary');
+          DOM.btnToggleFresh.textContent = '✓ Fresh (≤ 24h) Active';
+        }
+      } else {
+        state.filters.freshOnly = false;
+        if (DOM.btnToggleFresh) {
+          DOM.btnToggleFresh.classList.remove('button-primary');
+          DOM.btnToggleFresh.classList.add('button-secondary');
+          DOM.btnToggleFresh.textContent = '🔥 Fresh (≤ 24h) Only';
+        }
+      }
+      fetchJobs();
+    });
+  }
+
+  if (DOM.btnToggleFresh) {
+    DOM.btnToggleFresh.addEventListener('click', () => {
+      state.filters.freshOnly = !state.filters.freshOnly;
+      if (state.filters.freshOnly) {
+        DOM.btnToggleFresh.classList.remove('button-secondary');
+        DOM.btnToggleFresh.classList.add('button-primary');
+        DOM.btnToggleFresh.textContent = '✓ Fresh (≤ 24h) Active';
+        if (DOM.filterSort) DOM.filterSort.value = 'fresh_only';
+        showToast('🔥 Prioritizing fresh postings (≤ 24 hours only)', 'info');
+      } else {
+        DOM.btnToggleFresh.classList.remove('button-primary');
+        DOM.btnToggleFresh.classList.add('button-secondary');
+        DOM.btnToggleFresh.textContent = '🔥 Fresh (≤ 24h) Only';
+        if (DOM.filterSort) DOM.filterSort.value = 'fresh_first';
+      }
+      fetchJobs();
+    });
+  }
+
   DOM.btnResetFilters.addEventListener('click', () => {
     DOM.filterSearch.value = '';
     DOM.filterPlatform.value = '';
     if (DOM.scoutTargetPlatform) DOM.scoutTargetPlatform.value = '';
     DOM.filterScore.value = '';
     DOM.filterStatus.value = '';
-    state.filters = { search: '', platform: '', score: '', status: '' };
+    if (DOM.filterSort) DOM.filterSort.value = 'fresh_first';
+    if (DOM.btnToggleFresh) {
+      DOM.btnToggleFresh.classList.remove('button-primary');
+      DOM.btnToggleFresh.classList.add('button-secondary');
+      DOM.btnToggleFresh.textContent = '🔥 Fresh (≤ 24h) Only';
+    }
+    state.filters = { search: '', platform: '', score: '', status: '', freshOnly: false, sortBy: 'fresh_first' };
     updateScoutButtonLabel();
     fetchJobs();
   });
@@ -1868,6 +1931,29 @@ function initEventListeners() {
       switchView('jobs');
       DOM.filterScore.value = card.dataset.filterMinScore;
       state.filters.score = card.dataset.filterMinScore;
+      fetchJobs();
+    });
+  });
+
+  document.querySelectorAll('.stat-card[data-filter-fresh]').forEach(card => {
+    card.addEventListener('click', () => {
+      switchView('jobs');
+      state.filters.freshOnly = !state.filters.freshOnly;
+      if (DOM.filterSort) {
+        DOM.filterSort.value = state.filters.freshOnly ? 'fresh_only' : 'fresh_first';
+      }
+      if (DOM.btnToggleFresh) {
+        if (state.filters.freshOnly) {
+          DOM.btnToggleFresh.classList.remove('button-secondary');
+          DOM.btnToggleFresh.classList.add('button-primary');
+          DOM.btnToggleFresh.textContent = '✓ Fresh (≤ 24h) Active';
+          showToast('🔥 Filtered: Showing only fresh jobs posted in the last 24 hours', 'info');
+        } else {
+          DOM.btnToggleFresh.classList.remove('button-primary');
+          DOM.btnToggleFresh.classList.add('button-secondary');
+          DOM.btnToggleFresh.textContent = '🔥 Fresh (≤ 24h) Only';
+        }
+      }
       fetchJobs();
     });
   });
