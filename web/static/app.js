@@ -12,6 +12,10 @@ const state = {
   profile: null,
   preferences: null,
   stats: null,
+  seenJobIds: new Set(),
+  feedOffset: 0,
+  pageSize: 100,
+  totalUnseenRemaining: 0,
   filters: {
     search: '',
     platform: '',
@@ -38,13 +42,24 @@ const DOM = {
   statTotalApplied: document.getElementById('stat-total-applied'),
   statActivePlatforms: document.getElementById('stat-active-platforms'),
   
-  // Filters
+  // Filters & Refresh
   filterSearch: document.getElementById('filter-search'),
   filterPlatform: document.getElementById('filter-platform'),
   filterScore: document.getElementById('filter-score'),
   filterStatus: document.getElementById('filter-status'),
   filterSort: document.getElementById('filter-sort'),
   btnToggleFresh: document.getElementById('btn-toggle-fresh'),
+  btnRefreshUnseen: document.getElementById('btn-refresh-unseen'),
+  btnSweepAndRefresh: document.getElementById('btn-sweep-and-refresh'),
+  refreshSpinner: document.getElementById('refresh-spinner'),
+  refreshBtnLabel: document.getElementById('refresh-btn-label'),
+  unseenFeedBar: document.getElementById('unseen-feed-bar'),
+  unseenStatusText: document.getElementById('unseen-status-text'),
+  badgeSeenCount: document.getElementById('badge-seen-count'),
+  btnResetSeen: document.getElementById('btn-reset-seen'),
+  loadMoreContainer: document.getElementById('load-more-container'),
+  btnLoadMoreUnseen: document.getElementById('btn-load-more-unseen'),
+  badgeLoadMoreCount: document.getElementById('badge-load-more-count'),
   btnResetFilters: document.getElementById('btn-reset-filters'),
   btnPurgeGhosts: document.getElementById('btn-purge-ghosts'),
   btnBatchApplySubmit: document.getElementById('btn-batch-apply-submit'),
@@ -282,27 +297,113 @@ async function fetchStats() {
 }
 
 // -----------------------------------------------------------------------------
-// Data Fetching: Jobs
+// Data Fetching: Jobs (with Unseen Tracking, Pagination & Live Sweep Refresh)
 // -----------------------------------------------------------------------------
-async function fetchJobs() {
+function updateUnseenBanner(data, swept) {
+  if (DOM.badgeSeenCount) {
+    DOM.badgeSeenCount.textContent = `${state.seenJobIds.size} Viewed`;
+  }
+  if (DOM.badgeLoadMoreCount) {
+    DOM.badgeLoadMoreCount.textContent = `${state.totalUnseenRemaining} Remaining`;
+  }
+  if (DOM.btnLoadMoreUnseen) {
+    DOM.btnLoadMoreUnseen.style.display = state.totalUnseenRemaining > 0 ? 'inline-flex' : 'none';
+  }
+  if (DOM.unseenStatusText) {
+    const jobCount = (state.jobs || []).length;
+    const remaining = state.totalUnseenRemaining;
+    const freshCount = (state.jobs || []).filter(j => j.is_fresh).length;
+    const sweptNotice = swept ? ` · ⚡ Swept live` : '';
+    DOM.unseenStatusText.textContent = `Showing ${jobCount} postings (${freshCount} fresh ≤ 24h on first place) · ${remaining} unseen remaining in database${sweptNotice}`;
+  }
+}
+
+async function fetchJobs(options = {}) {
   try {
-    const params = new URLSearchParams();
-    if (state.filters.search) params.append('q', state.filters.search);
-    if (state.filters.platform) params.append('platform', state.filters.platform);
-    if (state.filters.score) params.append('min_score', state.filters.score);
-    if (state.filters.status) params.append('status', state.filters.status);
-    if (state.filters.freshOnly) params.append('fresh_only', 'true');
-    if (state.filters.sortBy) params.append('sort_by', state.filters.sortBy);
+    const isRefresh = Boolean(options.refresh);
+    const isAppend = Boolean(options.append);
+    const runLiveSweep = Boolean(options.runLiveSweep);
 
-    const res = await fetch(`/api/jobs?${params.toString()}`);
-    if (!res.ok) return;
+    if (isRefresh && DOM.refreshSpinner) {
+      DOM.refreshSpinner.style.display = 'inline';
+      if (DOM.refreshBtnLabel) {
+        DOM.refreshBtnLabel.textContent = runLiveSweep ? '⏳ Sweeping Live...' : '⏳ Refreshing...';
+      }
+    }
+
+    // When refreshing to get new unseen jobs, mark current jobs as seen
+    if (isRefresh && !options.resetSeen) {
+      (state.jobs || []).forEach(j => {
+        if (j.id) state.seenJobIds.add(j.id);
+      });
+    }
+
+    const excludeList = Array.from(state.seenJobIds);
+
+    let res;
+    if (isRefresh || runLiveSweep || excludeList.length > 0) {
+      res = await fetch('/api/jobs/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exclude_ids: excludeList,
+          limit: state.pageSize || 100,
+          platform: state.filters.platform || null,
+          q: state.filters.search || '',
+          min_score: state.filters.score ? parseInt(state.filters.score, 10) : null,
+          fresh_only: state.filters.freshOnly || false,
+          sort_by: state.filters.sortBy || 'fresh_first',
+          run_live_sweep: runLiveSweep
+        })
+      });
+    } else {
+      const params = new URLSearchParams();
+      if (state.filters.search) params.append('q', state.filters.search);
+      if (state.filters.platform) params.append('platform', state.filters.platform);
+      if (state.filters.score) params.append('min_score', state.filters.score);
+      if (state.filters.status) params.append('status', state.filters.status);
+      if (state.filters.freshOnly) params.append('fresh_only', 'true');
+      if (state.filters.sortBy) params.append('sort_by', state.filters.sortBy);
+      params.append('limit', state.pageSize || 100);
+
+      res = await fetch(`/api/jobs?${params.toString()}`);
+    }
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
     const data = await res.json();
-    state.jobs = data.jobs || [];
+    const incomingJobs = data.jobs || [];
 
+    if (isAppend) {
+      const existingIds = new Set(state.jobs.map(j => j.id));
+      const newlyAdded = incomingJobs.filter(j => !existingIds.has(j.id));
+      state.jobs = state.jobs.concat(newlyAdded);
+      newlyAdded.forEach(j => state.seenJobIds.add(j.id));
+    } else {
+      state.jobs = incomingJobs;
+      incomingJobs.forEach(j => state.seenJobIds.add(j.id));
+    }
+
+    state.totalUnseenRemaining = data.total_unseen_remaining ?? data.total_unseen ?? 0;
     renderJobsList(state.jobs);
+    updateUnseenBanner(data, runLiveSweep);
+
+    if (isRefresh) {
+      if (data.new_swept_count > 0) {
+        showToast(`🎉 Refreshed with ${incomingJobs.length} unseen jobs (${data.new_swept_count} newly swept live)!`, 'success');
+      } else if (incomingJobs.length > 0) {
+        showToast(`🔄 Refreshed feed with ${incomingJobs.length} new unseen jobs!`, 'info');
+      } else {
+        showToast('All available jobs have been seen. Click "⚡ Live Sweep & Refresh" to discover more!', 'warning');
+      }
+    }
   } catch (err) {
     console.error('Failed to fetch jobs:', err);
-    DOM.jobsList.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--color-danger);">Failed to load jobs. Check backend connection.</div>`;
+    DOM.jobsList.innerHTML = `<div style="padding: 40px; text-align: center; color: var(--color-danger);">Failed to load jobs: ${escapeHtml(err.message)}</div>`;
+  } finally {
+    if (DOM.refreshSpinner) DOM.refreshSpinner.style.display = 'none';
+    if (DOM.refreshBtnLabel) DOM.refreshBtnLabel.textContent = '🔄 Refresh New Jobs';
   }
 }
 
@@ -1882,9 +1983,36 @@ function initEventListeners() {
       DOM.btnToggleFresh.textContent = '🔥 Fresh (≤ 24h) Only';
     }
     state.filters = { search: '', platform: '', score: '', status: '', freshOnly: false, sortBy: 'fresh_first' };
+    state.seenJobIds.clear();
     updateScoutButtonLabel();
-    fetchJobs();
+    fetchJobs({ resetSeen: true });
   });
+
+  if (DOM.btnRefreshUnseen) {
+    DOM.btnRefreshUnseen.addEventListener('click', () => {
+      fetchJobs({ refresh: true });
+    });
+  }
+
+  if (DOM.btnSweepAndRefresh) {
+    DOM.btnSweepAndRefresh.addEventListener('click', () => {
+      fetchJobs({ refresh: true, runLiveSweep: true });
+    });
+  }
+
+  if (DOM.btnLoadMoreUnseen) {
+    DOM.btnLoadMoreUnseen.addEventListener('click', () => {
+      fetchJobs({ append: true });
+    });
+  }
+
+  if (DOM.btnResetSeen) {
+    DOM.btnResetSeen.addEventListener('click', () => {
+      state.seenJobIds.clear();
+      showToast('↺ Viewed history reset. Reloading postings from the start.', 'info');
+      fetchJobs({ resetSeen: true });
+    });
+  }
 
   if (DOM.btnPurgeGhosts) {
     DOM.btnPurgeGhosts.addEventListener('click', async () => {
