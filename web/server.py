@@ -81,7 +81,7 @@ async def api_stats(request: Request) -> JSONResponse:
 
 
 async def api_list_jobs(request: Request) -> JSONResponse:
-    """List discovered jobs with search, platform, score, freshness, and status filters."""
+    """List discovered jobs with search, platform, score, freshness, pagination, and exclude filters."""
     query_params = request.query_params
     search = query_params.get("q", "").strip().lower()
     platform = query_params.get("platform")
@@ -93,6 +93,10 @@ async def api_list_jobs(request: Request) -> JSONResponse:
     if sort_by == "fresh_only":
         fresh_only = True
     limit = int(query_params.get("limit", 100))
+    offset = int(query_params.get("offset", 0))
+
+    exclude_ids_raw = query_params.get("exclude_ids", "").strip()
+    exclude_ids = [i.strip() for i in exclude_ids_raw.split(",") if i.strip()] if exclude_ids_raw else None
 
     status_filter = ApplicationStatus(status_str) if status_str else None
     min_score = int(min_score_str) if min_score_str and min_score_str.isdigit() else None
@@ -101,10 +105,11 @@ async def api_list_jobs(request: Request) -> JSONResponse:
     raw_jobs = db.list_jobs(
         status=status_filter,
         platform=platform,
-        limit=500,
+        limit=1000,
         min_match_score=min_score,
         fresh_only=fresh_only,
-        prioritize_fresh=True
+        prioritize_fresh=True,
+        exclude_ids=exclude_ids
     )
 
     # Perform text search filtering if specified
@@ -141,10 +146,18 @@ async def api_list_jobs(request: Request) -> JSONResponse:
             reverse=True
         )
 
-    jobs = jobs[:limit]
+    total_unseen = len(jobs)
+    total_matching = db.count_jobs(
+        status=status_filter,
+        platform=platform,
+        min_match_score=min_score,
+        fresh_only=fresh_only
+    )
+
+    paged_jobs = jobs[offset:offset + limit]
 
     output = []
-    for j in jobs:
+    for j in paged_jobs:
         output.append({
             "id": j.id,
             "title": j.title,
@@ -168,6 +181,123 @@ async def api_list_jobs(request: Request) -> JSONResponse:
 
     return JSONResponse({
         "count": len(output),
+        "total_unseen_remaining": max(0, total_unseen - offset - len(output)),
+        "total_matching": total_matching,
+        "offset": offset,
+        "limit": limit,
+        "has_more": (offset + len(output)) < total_unseen,
+        "fresh_count": sum(1 for item in output if item["is_fresh"]),
+        "jobs": output
+    })
+
+
+async def api_refresh_unseen_jobs(request: Request) -> JSONResponse:
+    """
+    Refresh feed by fetching new unseen jobs, optionally executing a live discovery sweep first.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    exclude_ids = body.get("exclude_ids", [])
+    platform = body.get("platform")
+    if isinstance(platform, str) and platform.strip().lower() in ["all", "none", "null", ""]:
+        platform = None
+    fresh_only = bool(body.get("fresh_only", False))
+    sort_by = body.get("sort_by", "fresh_first")
+    limit = int(body.get("limit", 100))
+    run_live_sweep = bool(body.get("run_live_sweep", False))
+    search = str(body.get("q", "")).strip().lower()
+    min_score = body.get("min_score")
+    if min_score is not None:
+        try:
+            min_score = int(min_score)
+        except ValueError:
+            min_score = None
+
+    new_swept_count = 0
+    sweep_summary = None
+
+    if run_live_sweep:
+        profile_mgr.reload()
+        roles = body.get("roles") or profile_mgr.preferences.target_roles
+        try:
+            sweep_summary = await aggregator.run_discovery_cycle(
+                roles=roles,
+                max_age_hours=24,
+                platform=platform
+            )
+            new_swept_count = sweep_summary.get("new_unique_jobs", 0)
+        except Exception as e:
+            logger.warning(f"Live sweep during refresh encountered non-fatal error: {e}")
+
+    # Query unseen jobs excluding already-seen IDs
+    raw_jobs = db.list_jobs(
+        platform=platform,
+        limit=1000,
+        min_match_score=min_score,
+        fresh_only=fresh_only,
+        prioritize_fresh=True,
+        exclude_ids=exclude_ids
+    )
+
+    if search:
+        jobs = [j for j in raw_jobs if search in f"{j.title} {j.company} {j.location} {j.salary or ''} {j.description or ''}".lower()]
+    else:
+        jobs = raw_jobs
+
+    if fresh_only:
+        jobs = [j for j in jobs if j.is_fresh_24h]
+
+    if sort_by in ("fresh_first", "fresh_only"):
+        jobs = sorted(
+            jobs,
+            key=lambda j: (1 if j.is_fresh_24h else 0, j.match_score or 0, -j.age_hours),
+            reverse=True
+        )
+    elif sort_by == "score_desc":
+        jobs = sorted(
+            jobs,
+            key=lambda j: (j.match_score or 0, 1 if j.is_fresh_24h else 0, -j.age_hours),
+            reverse=True
+        )
+    elif sort_by == "newest":
+        jobs = sorted(jobs, key=lambda j: -j.age_hours, reverse=True)
+
+    total_unseen_count = len(jobs)
+    selected_jobs = jobs[:limit]
+
+    output = []
+    for j in selected_jobs:
+        output.append({
+            "id": j.id,
+            "title": j.title,
+            "company": j.company,
+            "location": j.location,
+            "platform": j.platform,
+            "url": j.url,
+            "apply_url": j.apply_url or j.url,
+            "salary": j.salary,
+            "is_easy_apply": j.is_easy_apply,
+            "match_score": j.match_score,
+            "match_reasons": j.match_reasons or [],
+            "status": j.status.value,
+            "posted_at": j.posted_at.isoformat() if j.posted_at else None,
+            "discovered_at": j.discovered_at.isoformat() if j.discovered_at else None,
+            "is_fresh": j.is_fresh_24h,
+            "age_hours": round(j.age_hours, 1),
+            "age_display": j.age_display,
+            "description_snippet": (j.description or "")[:280]
+        })
+
+    return JSONResponse({
+        "success": True,
+        "new_swept_count": new_swept_count,
+        "sweep_summary": sweep_summary,
+        "count": len(output),
+        "total_unseen_remaining": max(0, total_unseen_count - len(output)),
+        "has_more": total_unseen_count > len(output),
         "fresh_count": sum(1 for item in output if item["is_fresh"]),
         "jobs": output
     })
@@ -916,6 +1046,7 @@ routes = [
     Route("/", serve_index, methods=["GET"]),
     Route("/api/stats", api_stats, methods=["GET"]),
     Route("/api/jobs", api_list_jobs, methods=["GET"]),
+    Route("/api/jobs/refresh", api_refresh_unseen_jobs, methods=["POST"]),
     Route("/api/jobs/{job_id}", api_get_job, methods=["GET"]),
     Route("/api/jobs/purge-ghosts", api_purge_ghost_jobs, methods=["POST"]),
     Route("/api/jobs/{job_id}/evaluate", api_evaluate_job, methods=["POST"]),
