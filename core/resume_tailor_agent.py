@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 from core.models import JobListing, ApplicationStatus
 from core.profile_manager import ProfileManager
 from core.llm_client import LLMClient
+from core.resume_docx_renderer import ResumeDocxRenderer
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,7 @@ class TailoredResumeArtifacts:
         cover_letter: str,
         ats_text: str,
         pdf_path: Optional[str] = None,
+        docx_path: Optional[str] = None,
         text_path: Optional[str] = None,
         audit_passed: bool = True,
         audit_violations: Optional[List[str]] = None,
@@ -61,6 +63,7 @@ class TailoredResumeArtifacts:
         self.cover_letter = cover_letter
         self.ats_text = ats_text
         self.pdf_path = pdf_path
+        self.docx_path = docx_path
         self.text_path = text_path
         self.audit_passed = audit_passed
         self.audit_violations = audit_violations or []
@@ -81,8 +84,10 @@ class TailoredResumeArtifacts:
             "cover_letter": self.cover_letter,
             "ats_text": self.ats_text,
             "pdf_path": self.pdf_path,
+            "docx_path": self.docx_path,
             "text_path": self.text_path,
             "pdf_filename": Path(self.pdf_path).name if self.pdf_path else None,
+            "docx_filename": Path(self.docx_path).name if self.docx_path else None,
             "text_filename": Path(self.text_path).name if self.text_path else None,
             "audit_passed": self.audit_passed,
             "audit_violations": self.audit_violations,
@@ -108,6 +113,7 @@ class ResumeTailorAgent:
         self.llm_client = llm_client or LLMClient()
         self.artifacts_dir = Path(artifacts_dir)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+        self.docx_renderer = ResumeDocxRenderer()
 
     async def tailor_for_job(self, job: JobListing, generate_pdf: bool = True) -> TailoredResumeArtifacts:
         """
@@ -157,6 +163,28 @@ class ResumeTailorAgent:
         text_file = self.artifacts_dir / f"{base_filename}.txt"
         text_file.write_text(ats_text, encoding="utf-8")
 
+        # Step 5.1: Render Official DOCX from Template
+        docx_file = self.artifacts_dir / f"{base_filename}.docx"
+        docx_path_str = None
+        try:
+            docx_data = {
+                "full_name": p_yaml.get("identity", {}).get("full_name", "VEDANG TIWARI"),
+                "objective": tailored.get("summary", ""),
+                "education": p_yaml.get("education", [{}])[0] if p_yaml.get("education") else {},
+                "experiences": tailored.get("experience", []),
+                "projects": tailored.get("projects", []),
+                "skills": {
+                    "languages": tailored.get("ordered_skills", {}).get("strong", [])[:6],
+                    "frameworks": [s for s in tailored.get("ordered_skills", {}).get("strong", []) if s in ["FastAPI", "React", "Playwright", "Node.js", "Express", "LangChain"]],
+                    "technologies": ["Docker", "Git", "GitHub Actions", "CI/CD", "Linux", "REST APIs"],
+                    "databases": ["PostgreSQL", "Redis", "SQLite"]
+                },
+                "certifications": p_yaml.get("certifications", [])
+            }
+            docx_path_str = self.docx_renderer.render(docx_data, str(docx_file))
+        except Exception as dx_err:
+            logger.warning(f"Failed to render docx artifact: {dx_err}")
+
         pdf_path_str = None
         if generate_pdf:
             pdf_file = self.artifacts_dir / f"{base_filename}.pdf"
@@ -185,6 +213,7 @@ class ResumeTailorAgent:
             cover_letter=cover_letter,
             ats_text=ats_text,
             pdf_path=pdf_path_str,
+            docx_path=docx_path_str,
             text_path=str(text_file),
             audit_passed=audit_passed,
             audit_violations=violations,
