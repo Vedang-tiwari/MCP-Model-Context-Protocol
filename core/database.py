@@ -284,6 +284,109 @@ class DatabaseManager:
             conn.commit()
             return cursor.lastrowid
 
+    def delete_job(self, job_id: str) -> bool:
+        """Permanently delete a single job and its associated application & history records."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM applications WHERE job_id = ?", (job_id,))
+            cursor.execute("DELETE FROM state_history WHERE job_id = ?", (job_id,))
+            cursor.execute("DELETE FROM jobs WHERE id = ?", (job_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
+    def purge_ghost_jobs(
+        self,
+        hard_delete: bool = True,
+        dry_run: bool = False,
+        purge_stale: bool = True,
+        detector: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Scans existing database records, detects ghost / fake / stale / evergreen requisitions,
+        and either permanently purges them (hard_delete=True) or marks them EXPIRED / FILTERED_OUT.
+        """
+        from .ghost_job_detector import GhostJobDetector
+        detector = detector or GhostJobDetector()
+
+        all_jobs = self.list_jobs(limit=50000)
+
+        ghost_ids_to_purge = []
+        breakdown = {
+            "dummy_companies": 0,
+            "placeholder_urls": 0,
+            "evergreen_or_pipeline": 0,
+            "stale_postings": 0,
+            "total_ghosts": 0
+        }
+
+        for job in all_jobs:
+            # Skip applied / submitted / interview / offer unless it's an outright dummy seed employer or malformed URL
+            is_active_candidate_flow = job.status in (
+                ApplicationStatus.APPLIED,
+                ApplicationStatus.SUBMITTED,
+                ApplicationStatus.INTERVIEW,
+                ApplicationStatus.RESPONSE_RECEIVED
+            )
+
+            verdict = detector.evaluate(job)
+            if not verdict.is_ghost:
+                continue
+
+            # Check primary reason category
+            is_dummy = any("dummy/seed" in r for r in verdict.reasons)
+            is_bad_url = any("URL" in r or "slug" in r for r in verdict.reasons)
+            is_evergreen = any("evergreen" in r or "talent pool" in r or "pipeline" in r for r in verdict.reasons)
+            is_stale = any("Stale" in r for r in verdict.reasons)
+
+            # If user wants to keep stale postings, skip stale-only ghost reasons
+            if not purge_stale and is_stale and not (is_dummy or is_bad_url or is_evergreen):
+                continue
+
+            # Don't delete real applied applications if it was just stale
+            if is_active_candidate_flow and not (is_dummy or is_bad_url):
+                continue
+
+            if is_dummy:
+                breakdown["dummy_companies"] += 1
+            elif is_bad_url:
+                breakdown["placeholder_urls"] += 1
+            elif is_evergreen:
+                breakdown["evergreen_or_pipeline"] += 1
+            elif is_stale:
+                breakdown["stale_postings"] += 1
+
+            ghost_ids_to_purge.append((job.id, verdict.reasons))
+
+        breakdown["total_ghosts"] = len(ghost_ids_to_purge)
+
+        if not dry_run and ghost_ids_to_purge:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                chunk_size = 500
+                ids_only = [item[0] for item in ghost_ids_to_purge]
+                for i in range(0, len(ids_only), chunk_size):
+                    chunk = ids_only[i:i + chunk_size]
+                    placeholders = ",".join("?" for _ in chunk)
+                    if hard_delete:
+                        cursor.execute(f"DELETE FROM applications WHERE job_id IN ({placeholders})", chunk)
+                        cursor.execute(f"DELETE FROM state_history WHERE job_id IN ({placeholders})", chunk)
+                        cursor.execute(f"DELETE FROM jobs WHERE id IN ({placeholders})", chunk)
+                    else:
+                        cursor.execute(
+                            f"UPDATE jobs SET status = ?, rejection_reason = ? WHERE id IN ({placeholders})",
+                            [ApplicationStatus.EXPIRED.value, "Purged: Ghost or stale requisition", *chunk]
+                        )
+                conn.commit()
+
+        return {
+            "total_scanned": len(all_jobs),
+            "ghost_jobs_found": len(ghost_ids_to_purge),
+            "purged_count": len(ghost_ids_to_purge) if not dry_run else 0,
+            "dry_run": dry_run,
+            "hard_delete": hard_delete,
+            "breakdown": breakdown
+        }
+
     def get_stats(self) -> Dict[str, Any]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
