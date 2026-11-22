@@ -87,34 +87,5 @@ class HiristProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live Hirist scrape encountered: {e}")
 
-        # Ensure high-quality listings matching target roles with LPA packages
-        if not results:
-            seed_hirist = [
-                ("Senior Gen AI & LLM Engineer", "TechNova Systems", "Bengaluru (Hybrid)", "₹28 - ₹45 LPA"),
-                ("Staff Backend Engineer (Python/FastAPI)", "Razorpay Direct", "Remote / Bengaluru", "₹32 - ₹50 LPA"),
-                ("Forward Deployed Engineer (AI Solutions)", "InnoMatrix AI", "Hyderabad", "₹22 - ₹36 LPA"),
-                ("Full Stack Engineer (React + Node.js)", "FinFlow Technologies", "Pune / Remote", "₹18 - ₹28 LPA"),
-                ("Lead Machine Learning Platform Engineer", "DataWeave India", "Bengaluru", "₹35 - ₹55 LPA")
-            ]
-            for title, company, loc, sal in seed_hirist:
-                url = f"https://www.hirist.tech/j/{title.lower().replace(' ', '-')}-101.html"
-                job_id = self.generate_job_id("hirist", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="hirist",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"Verified Hirist opportunity: {title} at {company}. Compensation: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"hirist": True, "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active Hirist jobs")
         return results
