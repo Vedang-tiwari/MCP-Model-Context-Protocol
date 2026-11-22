@@ -161,19 +161,20 @@ class JobFitScorer:
             company_score = 1.0
             fit_reasons.append(f"High-priority curated target company: {job.company}")
 
-        # Factor 5: Freshness (0.10 weight)
-        freshness_score = 0.8
-        if job.posted_at:
+        # Factor 5: Freshness (0.10 weight - strictly 24 hours prior basis)
+        freshness_score = 0.3
+        ref_dt = job.posted_at or job.discovered_at
+        if ref_dt:
             now_dt = datetime.now(timezone.utc)
-            posted_dt = job.posted_at if job.posted_at.tzinfo else job.posted_at.replace(tzinfo=timezone.utc)
-            hours_old = (now_dt - posted_dt).total_seconds() / 3600
-            if hours_old <= 24:
+            posted_dt = ref_dt if ref_dt.tzinfo else ref_dt.replace(tzinfo=timezone.utc)
+            hours_old = (now_dt - posted_dt).total_seconds() / 3600.0
+            if hours_old <= 24.0:
                 freshness_score = 1.0
-                fit_reasons.append("Fresh posting (under 24 hours)")
-            elif hours_old <= 72:
-                freshness_score = 0.8
+                fit_reasons.append("🔥 Ultra-fresh posting (≤ 24 hours)")
+            elif hours_old <= 48.0:
+                freshness_score = 0.6
             else:
-                freshness_score = 0.5
+                freshness_score = 0.3
 
         # Weighted calculation
         final_score = (
