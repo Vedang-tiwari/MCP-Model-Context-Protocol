@@ -40,6 +40,7 @@ const DOM = {
   filterScore: document.getElementById('filter-score'),
   filterStatus: document.getElementById('filter-status'),
   btnResetFilters: document.getElementById('btn-reset-filters'),
+  btnPurgeGhosts: document.getElementById('btn-purge-ghosts'),
   btnBatchApplySubmit: document.getElementById('btn-batch-apply-submit'),
   btnBatchApplyReview: document.getElementById('btn-batch-apply-review'),
   batchApplyCount: document.getElementById('batch-apply-count'),
@@ -147,6 +148,56 @@ const DOM = {
   btnCopyCoverLetter: document.getElementById('btn-copy-cover-letter'),
   btnDownloadTailoredPdf: document.getElementById('btn-download-tailored-pdf'),
   btnApplyWithTailored: document.getElementById('btn-apply-with-tailored'),
+  btnTailorModalEdit: document.getElementById('btn-tailor-modal-edit'),
+  btnDownloadTailoredDocx: document.getElementById('btn-download-tailored-docx'),
+
+  // Official Word Template in Vault
+  btnDownloadVaultTemplate: document.getElementById('btn-download-vault-template'),
+  btnToggleTemplatePreview: document.getElementById('btn-toggle-template-preview'),
+  vaultTemplatePreviewCard: document.getElementById('vault-template-preview-card'),
+  vaultSelectJobCustom: document.getElementById('vault-select-job-custom'),
+  btnJobModalEditResume: document.getElementById('btn-job-modal-edit-resume'),
+
+  // Custom Resume Editor Modal
+  customResumeModal: document.getElementById('custom-resume-modal'),
+  btnCloseCrmModal: document.getElementById('btn-close-crm-modal'),
+  btnCrmCancel: document.getElementById('btn-crm-cancel'),
+  btnCrmSave: document.getElementById('btn-crm-save'),
+  btnCrmApply: document.getElementById('btn-crm-apply'),
+  btnCrmDownloadDocx: document.getElementById('btn-crm-download-docx'),
+  crmScorePill: document.getElementById('crm-score-pill'),
+  crmTitle: document.getElementById('crm-title'),
+  crmSub: document.getElementById('crm-sub'),
+  crmTabs: document.querySelectorAll('.crm-tab'),
+  crmObjective: document.getElementById('crm-objective'),
+  crmExp1B1: document.getElementById('crm-exp1-b1'),
+  crmExp1B2: document.getElementById('crm-exp1-b2'),
+  crmExp1B3: document.getElementById('crm-exp1-b3'),
+  crmExp2B1: document.getElementById('crm-exp2-b1'),
+  crmExp2B2: document.getElementById('crm-exp2-b2'),
+  crmExp2B3: document.getElementById('crm-exp2-b3'),
+  crmProj1Tech: document.getElementById('crm-proj1-tech'),
+  crmProj1B1: document.getElementById('crm-proj1-b1'),
+  crmProj1B2: document.getElementById('crm-proj1-b2'),
+  crmProj2Tech: document.getElementById('crm-proj2-tech'),
+  crmProj2B1: document.getElementById('crm-proj2-b1'),
+  crmProj2B2: document.getElementById('crm-proj2-b2'),
+  crmSkillsLang: document.getElementById('crm-skills-lang'),
+  crmSkillsFrameworks: document.getElementById('crm-skills-frameworks'),
+  crmSkillsDevops: document.getElementById('crm-skills-devops'),
+  crmSkillsDatabases: document.getElementById('crm-skills-databases'),
+  crmCoverLetter: document.getElementById('crm-cover-letter'),
+  crmPvObjective: document.getElementById('crm-pv-objective'),
+  crmPvExp1Bullets: document.getElementById('crm-pv-exp1-bullets'),
+  crmPvExp2Bullets: document.getElementById('crm-pv-exp2-bullets'),
+  crmPvProj1Tech: document.getElementById('crm-pv-proj1-tech'),
+  crmPvProj1Bullets: document.getElementById('crm-pv-proj1-bullets'),
+  crmPvProj2Tech: document.getElementById('crm-pv-proj2-tech'),
+  crmPvProj2Bullets: document.getElementById('crm-pv-proj2-bullets'),
+  crmPvSkillsLang: document.getElementById('crm-pv-skills-lang'),
+  crmPvSkillsFrameworks: document.getElementById('crm-pv-skills-frameworks'),
+  crmPvSkillsDevops: document.getElementById('crm-pv-skills-devops'),
+  crmPvSkillsDatabases: document.getElementById('crm-pv-skills-databases'),
   
   // Toast
   toastContainer: document.getElementById('toast-container')
@@ -312,6 +363,9 @@ function renderJobsList(jobs) {
           <button class="button button-secondary button-sm btn-inspect" data-id="${j.id}">
             Details
           </button>
+          <button class="button button-secondary button-sm btn-quick-custom-resume" data-id="${j.id}" title="Edit and customize candidate resume specifically for this job on the official Word template">
+            ✏️ Edit Resume
+          </button>
           <button class="button button-secondary button-sm btn-quick-tailor" data-id="${j.id}" title="Run Resume Tailor Agent for this specific job">
             📄 Tailor
           </button>
@@ -323,9 +377,27 @@ function renderJobsList(jobs) {
     `;
   }).join('');
 
+  // Populate Candidate Vault Job Customizer Selector
+  if (DOM.vaultSelectJobCustom) {
+    const curVal = DOM.vaultSelectJobCustom.value;
+    const opts = ['<option value="">✏️ Edit Resume for a Job...</option>'];
+    (jobs || []).slice(0, 50).forEach(j => {
+      opts.push(`<option value="${j.id}">${escapeHtml(j.title.substring(0, 26))} · ${escapeHtml(j.company.substring(0, 16))} (${j.match_score || 0}%)</option>`);
+    });
+    DOM.vaultSelectJobCustom.innerHTML = opts.join('');
+    if (curVal) DOM.vaultSelectJobCustom.value = curVal;
+  }
+
   // Attach event handlers
   DOM.jobsList.querySelectorAll('.btn-inspect').forEach(btn => {
     btn.addEventListener('click', () => openJobModal(btn.dataset.id));
+  });
+
+  DOM.jobsList.querySelectorAll('.btn-quick-custom-resume').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openResumeEditor(btn.dataset.id);
+    });
   });
 
   DOM.jobsList.querySelectorAll('.btn-quick-tailor').forEach(btn => {
@@ -767,6 +839,18 @@ function openTailorModalWithData(art, jobId) {
     }
   }
 
+  // DOCX Download Button
+  if (DOM.btnDownloadTailoredDocx) {
+    if (art.docx_filename) {
+      DOM.btnDownloadTailoredDocx.style.display = 'inline-flex';
+      DOM.btnDownloadTailoredDocx.href = `/api/artifacts/${encodeURIComponent(art.docx_filename)}`;
+      DOM.btnDownloadTailoredDocx.download = art.docx_filename;
+    } else {
+      DOM.btnDownloadTailoredDocx.style.display = 'inline-flex';
+      DOM.btnDownloadTailoredDocx.href = `/api/jobs/${jobId}/custom-resume/download`;
+    }
+  }
+
   if (DOM.tailorModal) {
     DOM.tailorModal.classList.add('open');
   }
@@ -778,6 +862,272 @@ function closeTailorModal() {
   }
   activeTailoredArtifacts = null;
   activeTailoredJobId = null;
+}
+
+// -----------------------------------------------------------------------------
+// Job-Specific Custom Resume Editor (Official Word Template)
+// -----------------------------------------------------------------------------
+let currentEditingJobId = null;
+let currentEditingData = null;
+
+async function openResumeEditor(jobId) {
+  if (!jobId) return;
+  currentEditingJobId = jobId;
+
+  if (DOM.jobModal) DOM.jobModal.classList.remove('open');
+  if (DOM.tailorModal) DOM.tailorModal.classList.remove('open');
+
+  showToast('Loading job resume draft from official Word template...', 'info');
+
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/custom-resume`);
+    if (!res.ok) {
+      showToast('Could not load custom resume data', 'error');
+      return;
+    }
+    const data = await res.json();
+    currentEditingData = data;
+    const rData = data.resume_data || {};
+
+    if (DOM.crmTitle) {
+      DOM.crmTitle.textContent = `Customize Resume for ${data.job_title || 'Role'}`;
+    }
+    if (DOM.crmSub) {
+      DOM.crmSub.textContent = `${data.company || 'Company'} · Based on mcp-resume-template.docx`;
+    }
+    if (DOM.crmScorePill) {
+      DOM.crmScorePill.textContent = `${data.match_score || 0}%`;
+      DOM.crmScorePill.className = `score-pill ${(data.match_score || 0) >= 70 ? 'score-high' : ((data.match_score || 0) >= 40 ? 'score-mid' : 'score-low')}`;
+    }
+
+    // Populate Objective
+    if (DOM.crmObjective) {
+      DOM.crmObjective.value = rData.objective || rData.summary || '';
+    }
+
+    // Populate Experience Bullets
+    const exps = rData.experiences || [];
+    const e1Bullets = (exps[0] && exps[0].bullets) ? exps[0].bullets : [];
+    if (DOM.crmExp1B1) DOM.crmExp1B1.value = e1Bullets[0] || '';
+    if (DOM.crmExp1B2) DOM.crmExp1B2.value = e1Bullets[1] || '';
+    if (DOM.crmExp1B3) DOM.crmExp1B3.value = e1Bullets[2] || '';
+
+    const e2Bullets = (exps[1] && exps[1].bullets) ? exps[1].bullets : [];
+    if (DOM.crmExp2B1) DOM.crmExp2B1.value = e2Bullets[0] || '';
+    if (DOM.crmExp2B2) DOM.crmExp2B2.value = e2Bullets[1] || '';
+    if (DOM.crmExp2B3) DOM.crmExp2B3.value = e2Bullets[2] || '';
+
+    // Populate Projects
+    const projs = rData.projects || [];
+    if (projs[0]) {
+      if (DOM.crmProj1Tech) DOM.crmProj1Tech.value = (projs[0].technologies || projs[0].stack || []).join(', ');
+      const b = projs[0].bullets || [];
+      if (DOM.crmProj1B1) DOM.crmProj1B1.value = b[0] || '';
+      if (DOM.crmProj1B2) DOM.crmProj1B2.value = b[1] || '';
+    }
+    if (projs[1]) {
+      if (DOM.crmProj2Tech) DOM.crmProj2Tech.value = (projs[1].technologies || projs[1].stack || []).join(', ');
+      const b = projs[1].bullets || [];
+      if (DOM.crmProj2B1) DOM.crmProj2B1.value = b[0] || '';
+      if (DOM.crmProj2B2) DOM.crmProj2B2.value = b[1] || '';
+    }
+
+    // Populate Skills
+    const skills = rData.skills || {};
+    if (DOM.crmSkillsLang) DOM.crmSkillsLang.value = (skills.languages || []).join(', ');
+    if (DOM.crmSkillsFrameworks) DOM.crmSkillsFrameworks.value = (skills.frameworks || []).join(', ');
+    if (DOM.crmSkillsDevops) DOM.crmSkillsDevops.value = (skills.technologies || []).join(', ');
+    if (DOM.crmSkillsDatabases) DOM.crmSkillsDatabases.value = (skills.databases || []).join(', ');
+
+    // Cover Letter
+    if (DOM.crmCoverLetter) {
+      DOM.crmCoverLetter.value = data.cover_letter || '';
+    }
+
+    // Download Docx Link
+    if (DOM.btnCrmDownloadDocx) {
+      DOM.btnCrmDownloadDocx.href = `/api/jobs/${jobId}/custom-resume/download?t=${Date.now()}`;
+    }
+
+    // Reset Tab to Editor
+    switchCrmTab('crm-tab-editor');
+    updateCrmLivePreview();
+
+    if (DOM.customResumeModal) {
+      DOM.customResumeModal.classList.add('open');
+    }
+  } catch (err) {
+    console.error('Error opening resume editor:', err);
+    showToast('Failed to load resume editor: ' + err.message, 'error');
+  }
+}
+
+function closeResumeEditor() {
+  if (DOM.customResumeModal) {
+    DOM.customResumeModal.classList.remove('open');
+  }
+  currentEditingJobId = null;
+  currentEditingData = null;
+}
+
+function switchCrmTab(targetTabId) {
+  if (DOM.crmTabs) {
+    DOM.crmTabs.forEach(t => {
+      if (t.dataset.tab === targetTabId) {
+        t.classList.add('active');
+        t.style.background = 'var(--color-surface)';
+        t.style.fontWeight = '600';
+      } else {
+        t.classList.remove('active');
+        t.style.background = 'transparent';
+        t.style.fontWeight = 'normal';
+      }
+    });
+  }
+
+  const tabContents = ['crm-tab-editor', 'crm-tab-preview', 'crm-tab-cover'];
+  tabContents.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (id === targetTabId) ? 'block' : 'none';
+  });
+
+  if (targetTabId === 'crm-tab-preview') {
+    updateCrmLivePreview();
+  }
+}
+
+function updateCrmLivePreview() {
+  if (DOM.crmPvObjective && DOM.crmObjective) {
+    DOM.crmPvObjective.textContent = DOM.crmObjective.value || 'Objective text will appear here...';
+  }
+
+  // Exp 1 Bullets
+  if (DOM.crmPvExp1Bullets) {
+    const b1 = [DOM.crmExp1B1?.value, DOM.crmExp1B2?.value, DOM.crmExp1B3?.value].filter(Boolean);
+    DOM.crmPvExp1Bullets.innerHTML = b1.map(b => `<li style="margin-bottom: 2px;">${escapeHtml(b)}</li>`).join('');
+  }
+
+  // Exp 2 Bullets
+  if (DOM.crmPvExp2Bullets) {
+    const b2 = [DOM.crmExp2B1?.value, DOM.crmExp2B2?.value, DOM.crmExp2B3?.value].filter(Boolean);
+    DOM.crmPvExp2Bullets.innerHTML = b2.map(b => `<li style="margin-bottom: 2px;">${escapeHtml(b)}</li>`).join('');
+  }
+
+  // Proj 1
+  if (DOM.crmPvProj1Tech && DOM.crmProj1Tech) {
+    DOM.crmPvProj1Tech.textContent = `Technologies Used: ${DOM.crmProj1Tech.value}`;
+  }
+  if (DOM.crmPvProj1Bullets) {
+    const pb1 = [DOM.crmProj1B1?.value, DOM.crmProj1B2?.value].filter(Boolean);
+    DOM.crmPvProj1Bullets.innerHTML = pb1.map(b => `<li style="margin-bottom: 2px;">${escapeHtml(b)}</li>`).join('');
+  }
+
+  // Proj 2
+  if (DOM.crmPvProj2Tech && DOM.crmProj2Tech) {
+    DOM.crmPvProj2Tech.textContent = `Technologies Used: ${DOM.crmProj2Tech.value}`;
+  }
+  if (DOM.crmPvProj2Bullets) {
+    const pb2 = [DOM.crmProj2B1?.value, DOM.crmProj2B2?.value].filter(Boolean);
+    DOM.crmPvProj2Bullets.innerHTML = pb2.map(b => `<li style="margin-bottom: 2px;">${escapeHtml(b)}</li>`).join('');
+  }
+
+  // Skills
+  if (DOM.crmPvSkillsLang && DOM.crmSkillsLang) {
+    DOM.crmPvSkillsLang.innerHTML = `<span style="font-weight: bold;">Languages:</span> ${escapeHtml(DOM.crmSkillsLang.value)}`;
+  }
+  if (DOM.crmPvSkillsFrameworks && DOM.crmSkillsFrameworks) {
+    DOM.crmPvSkillsFrameworks.innerHTML = `<span style="font-weight: bold;">Frameworks & Tools:</span> ${escapeHtml(DOM.crmSkillsFrameworks.value)}`;
+  }
+  if (DOM.crmPvSkillsDevops && DOM.crmSkillsDevops) {
+    DOM.crmPvSkillsDevops.innerHTML = `<span style="font-weight: bold;">Engineering & DevOps:</span> ${escapeHtml(DOM.crmSkillsDevops.value)}`;
+  }
+  if (DOM.crmPvSkillsDatabases && DOM.crmSkillsDatabases) {
+    DOM.crmPvSkillsDatabases.innerHTML = `<span style="font-weight: bold;">Databases:</span> ${escapeHtml(DOM.crmSkillsDatabases.value)}`;
+  }
+}
+
+async function saveCustomResume(closeAfter = false) {
+  if (!currentEditingJobId) return false;
+
+  const parseCsv = (val) => (val || '').split(',').map(s => s.trim()).filter(Boolean);
+
+  const payload = {
+    objective: DOM.crmObjective?.value || '',
+    experiences: [
+      {
+        title: "Software Engineer",
+        company: "TechNova Solutions",
+        location: "Remote",
+        dates: "01/2023 – Present",
+        bullets: [DOM.crmExp1B1?.value, DOM.crmExp1B2?.value, DOM.crmExp1B3?.value].filter(Boolean)
+      },
+      {
+        title: "Software Engineering Intern",
+        company: "Apex Cloud Systems",
+        location: "Remote",
+        dates: "06/2022 – 12/2022",
+        bullets: [DOM.crmExp2B1?.value, DOM.crmExp2B2?.value, DOM.crmExp2B3?.value].filter(Boolean)
+      }
+    ],
+    projects: [
+      {
+        name: "Autonomous Agent Orchestrator",
+        link: "GitHub",
+        technologies: parseCsv(DOM.crmProj1Tech?.value),
+        bullets: [DOM.crmProj1B1?.value, DOM.crmProj1B2?.value].filter(Boolean)
+      },
+      {
+        name: "Distributed Event Pipeline",
+        link: "GitHub",
+        technologies: parseCsv(DOM.crmProj2Tech?.value),
+        bullets: [DOM.crmProj2B1?.value, DOM.crmProj2B2?.value].filter(Boolean)
+      }
+    ],
+    skills: {
+      languages: parseCsv(DOM.crmSkillsLang?.value),
+      frameworks: parseCsv(DOM.crmSkillsFrameworks?.value),
+      technologies: parseCsv(DOM.crmSkillsDevops?.value),
+      databases: parseCsv(DOM.crmSkillsDatabases?.value)
+    },
+    cover_letter: DOM.crmCoverLetter?.value || ''
+  };
+
+  if (DOM.btnCrmSave) {
+    DOM.btnCrmSave.disabled = true;
+    DOM.btnCrmSave.textContent = '⏳ Saving...';
+  }
+
+  try {
+    const res = await fetch(`/api/jobs/${currentEditingJobId}/custom-resume`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume_data: payload, cover_letter: payload.cover_letter })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast('💾 Custom resume saved & Word .docx generated!', 'success');
+      if (DOM.btnCrmDownloadDocx) {
+        DOM.btnCrmDownloadDocx.href = `/api/jobs/${currentEditingJobId}/custom-resume/download?t=${Date.now()}`;
+      }
+      fetchJobs();
+      if (closeAfter) {
+        closeResumeEditor();
+      }
+      return true;
+    } else {
+      showToast(data.error || 'Failed to save custom resume', 'error');
+      return false;
+    }
+  } catch (err) {
+    console.error('Save error:', err);
+    showToast('Error saving custom resume: ' + err.message, 'error');
+    return false;
+  } finally {
+    if (DOM.btnCrmSave) {
+      DOM.btnCrmSave.disabled = false;
+      DOM.btnCrmSave.textContent = '💾 Save Custom Resume';
+    }
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1473,6 +1823,36 @@ function initEventListeners() {
     fetchJobs();
   });
 
+  if (DOM.btnPurgeGhosts) {
+    DOM.btnPurgeGhosts.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to clean ghosted postings (dummy employers, placeholder URLs, evergreen pools, and stale listings) from your database?')) {
+        return;
+      }
+      DOM.btnPurgeGhosts.disabled = true;
+      DOM.btnPurgeGhosts.textContent = '⏳ Purging...';
+      try {
+        const res = await fetch('/api/jobs/purge-ghosts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hard_delete: true })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`🛡️ Cleaned ${data.purged_count} ghost/stale jobs from database!`, 'success');
+          await fetchStats();
+          await fetchJobs();
+        } else {
+          showToast(data.error || 'Failed to purge ghost jobs', 'error');
+        }
+      } catch (err) {
+        showToast('Error purging ghost jobs: ' + err.message, 'error');
+      } finally {
+        DOM.btnPurgeGhosts.disabled = false;
+        DOM.btnPurgeGhosts.textContent = '🧹 Clean Ghost Jobs';
+      }
+    });
+  }
+
   // Quick Stat Cards Click to Filter
   document.querySelectorAll('.stat-card[data-filter-status]').forEach(card => {
     card.addEventListener('click', () => {
@@ -1619,6 +1999,87 @@ function initEventListeners() {
     });
   }
 
+  // Official Word Template Controls in Vault
+  if (DOM.btnToggleTemplatePreview && DOM.vaultTemplatePreviewCard) {
+    DOM.btnToggleTemplatePreview.addEventListener('click', () => {
+      const isHidden = DOM.vaultTemplatePreviewCard.style.display === 'none';
+      DOM.vaultTemplatePreviewCard.style.display = isHidden ? 'block' : 'none';
+      DOM.btnToggleTemplatePreview.textContent = isHidden ? '🙈 Hide Template Layout' : '👁️ View Template Layout';
+    });
+  }
+
+  if (DOM.vaultSelectJobCustom) {
+    DOM.vaultSelectJobCustom.addEventListener('change', (e) => {
+      const jobId = e.target.value;
+      if (jobId) {
+        openResumeEditor(jobId);
+        e.target.value = '';
+      }
+    });
+  }
+
+  // Job Modal & Tailor Modal -> Custom Resume Editor
+  if (DOM.btnJobModalEditResume) {
+    DOM.btnJobModalEditResume.addEventListener('click', () => {
+      if (state.activeJob && state.activeJob.id) {
+        openResumeEditor(state.activeJob.id);
+      }
+    });
+  }
+
+  if (DOM.btnTailorModalEdit) {
+    DOM.btnTailorModalEdit.addEventListener('click', () => {
+      if (activeTailoredJobId) {
+        openResumeEditor(activeTailoredJobId);
+      }
+    });
+  }
+
+  // Custom Resume Editor Modal Controls
+  if (DOM.btnCloseCrmModal) {
+    DOM.btnCloseCrmModal.addEventListener('click', closeResumeEditor);
+  }
+  if (DOM.btnCrmCancel) {
+    DOM.btnCrmCancel.addEventListener('click', closeResumeEditor);
+  }
+  if (DOM.customResumeModal) {
+    DOM.customResumeModal.addEventListener('click', (e) => {
+      if (e.target === DOM.customResumeModal) closeResumeEditor();
+    });
+  }
+  if (DOM.btnCrmSave) {
+    DOM.btnCrmSave.addEventListener('click', () => saveCustomResume(false));
+  }
+  if (DOM.btnCrmApply) {
+    DOM.btnCrmApply.addEventListener('click', async () => {
+      const targetId = currentEditingJobId;
+      const saved = await saveCustomResume(true);
+      if (saved && targetId) {
+        triggerApply(targetId, true);
+      }
+    });
+  }
+  if (DOM.crmTabs) {
+    DOM.crmTabs.forEach(t => {
+      t.addEventListener('click', () => switchCrmTab(t.dataset.tab));
+    });
+  }
+
+  // Live preview update listeners
+  const crmInputs = [
+    DOM.crmObjective,
+    DOM.crmExp1B1, DOM.crmExp1B2, DOM.crmExp1B3,
+    DOM.crmExp2B1, DOM.crmExp2B2, DOM.crmExp2B3,
+    DOM.crmProj1Tech, DOM.crmProj1B1, DOM.crmProj1B2,
+    DOM.crmProj2Tech, DOM.crmProj2B1, DOM.crmProj2B2,
+    DOM.crmSkillsLang, DOM.crmSkillsFrameworks, DOM.crmSkillsDevops, DOM.crmSkillsDatabases
+  ];
+  crmInputs.forEach(input => {
+    if (input) {
+      input.addEventListener('input', updateCrmLivePreview);
+    }
+  });
+
   // Add Platform Modal
   DOM.btnOpenAddPlatform.addEventListener('click', () => {
     DOM.addPlatformModal.classList.add('open');
@@ -1639,6 +2100,7 @@ function initEventListeners() {
     if (e.key === 'Escape') {
       closeJobModal();
       closeTailorModal();
+      closeResumeEditor();
       DOM.addPlatformModal.classList.remove('open');
     }
   });
