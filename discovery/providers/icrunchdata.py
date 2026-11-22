@@ -75,33 +75,5 @@ class ICrunchDataProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live iCrunchData scrape encountered: {e}")
 
-        if not results:
-            seed_icrunch = [
-                ("Senior Data Scientist - Generative Models", "QuantMetrics AI", "Remote", "$135k - $185k / yr"),
-                ("Principal Data Platform Architect (Snowflake / Databricks)", "Teradata Cloud", "Remote / US", "$160k - $220k / yr"),
-                ("Lead AI & Analytics Engineer", "NielsenIQ Analytics", "Remote / India", "₹32 - ₹48 LPA"),
-                ("Machine Learning Engineer (Predictive Analytics)", "Cognizant Data Labs", "Hyderabad / Remote", "₹22 - ₹36 LPA"),
-                ("Data Infrastructure Engineer (Kafka / Spark)", "Verisk Analytics", "Worldwide Remote", "$120k - $170k / yr")
-            ]
-            for title, company, loc, sal in seed_icrunch:
-                url = f"https://icrunchdata.com/jobs/{title.lower().replace(' ', '-')}"
-                job_id = self.generate_job_id("icrunchdata", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="icrunchdata",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"iCrunchData curated opportunity: {title} at {company}. Package: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"icrunchdata": True, "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active iCrunchData jobs")
         return results
