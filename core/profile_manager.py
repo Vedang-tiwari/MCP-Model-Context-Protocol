@@ -157,7 +157,16 @@ class ProfileManager:
         """
         Dynamically selects the best-matching resume mapped to the job role.
         Evaluates title keywords, domain acronyms (SWE, FDE, AI, etc.), and fallbacks to default.
+        Prioritizes any job-specific tailored or custom resume saved for this requisition.
         """
+        # 0. Priority: Job-specific custom or tailored resume for this particular job
+        if job.metadata and isinstance(job.metadata, dict):
+            for k in ["custom_resume_docx", "custom_resume_pdf", "tailored_resume_docx", "tailored_resume_pdf"]:
+                cand = job.metadata.get(k)
+                if cand and Path(cand).exists():
+                    logger.info(f"Using job-specific custom resume '{cand}' for job '{job.title}'")
+                    return Path(cand)
+
         if not self.profile.role_resumes:
             # Fallback to single resume_file_path
             if self.profile.resume_file_path:
