@@ -75,33 +75,5 @@ class MLJobsInfoProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live ML-Jobs.info scrape encountered: {e}")
 
-        if not results:
-            seed_mljobs = [
-                ("Senior MLOps & Distributed Training Engineer", "MosaicML Ecosystem", "Remote", "$140k - $210k / yr"),
-                ("Deep Learning Research Engineer (Diffusion & Transformers)", "Stability AI Grantee", "Remote / Europe", "€105k - €155k / yr"),
-                ("Lead Machine Learning Platform Engineer", "Weights & Biases Partner", "Worldwide Remote", "$145k - $215k / yr"),
-                ("ML Engineer - LLM Fine-Tuning & Quantization", "Together AI Network", "Remote / India", "₹35 - ₹55 LPA ($120k - $175k / yr)"),
-                ("Applied PyTorch / CUDA Kernel Developer", "Modular AI Solutions", "Remote", "$150k - $225k / yr")
-            ]
-            for title, company, loc, sal in seed_mljobs:
-                url = f"https://ml-jobs.info/jobs/{title.lower().replace(' ', '-')}"
-                job_id = self.generate_job_id("mljobsinfo", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="mljobsinfo",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"ML-Jobs.info verified opportunity: {title} at {company}. Compensation: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"mljobsinfo": True, "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active ML-Jobs.info jobs")
         return results
