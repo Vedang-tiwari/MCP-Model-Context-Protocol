@@ -3,7 +3,7 @@ import json
 import os
 from contextlib import contextmanager
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from .models import JobListing, ApplicationRecord, ApplicationStatus
 
 
@@ -223,12 +223,15 @@ class DatabaseManager:
         status: Optional[ApplicationStatus] = None,
         platform: Optional[str] = None,
         limit: int = 50,
-        min_match_score: Optional[int] = None
+        min_match_score: Optional[int] = None,
+        fresh_only: bool = False,
+        prioritize_fresh: bool = True
     ) -> List[JobListing]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             conditions = []
             params = []
+            cutoff_24h_iso = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
             if status:
                 conditions.append("status = ?")
@@ -254,12 +257,30 @@ class DatabaseManager:
             if min_match_score is not None:
                 conditions.append("match_score >= ?")
                 params.append(min_match_score)
+            if fresh_only:
+                conditions.append("COALESCE(posted_at, discovered_at) >= ?")
+                params.append(cutoff_24h_iso)
 
             where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-            query = f"SELECT * FROM jobs {where_clause} ORDER BY discovered_at DESC LIMIT ?"
-            params.append(limit)
 
-            cursor.execute(query, params)
+            if prioritize_fresh:
+                query = f"""
+                SELECT *,
+                       CASE WHEN COALESCE(posted_at, discovered_at) >= ? THEN 1 ELSE 0 END as _is_fresh_tier
+                FROM jobs
+                {where_clause}
+                ORDER BY
+                    _is_fresh_tier DESC,
+                    match_score DESC,
+                    COALESCE(posted_at, discovered_at) DESC
+                LIMIT ?
+                """
+                exec_params = [cutoff_24h_iso] + params + [limit]
+            else:
+                query = f"SELECT * FROM jobs {where_clause} ORDER BY discovered_at DESC LIMIT ?"
+                exec_params = params + [limit]
+
+            cursor.execute(query, exec_params)
             rows = cursor.fetchall()
             return [self._row_to_job(row) for row in rows]
 
@@ -399,8 +420,16 @@ class DatabaseManager:
             cursor.execute("SELECT COUNT(*) as total FROM applications WHERE status = 'APPLIED'")
             total_applied = cursor.fetchone()["total"]
 
+            cutoff_24h_iso = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+            cursor.execute(
+                "SELECT COUNT(*) as fresh_count FROM jobs WHERE COALESCE(posted_at, discovered_at) >= ?",
+                (cutoff_24h_iso,)
+            )
+            fresh_count = cursor.fetchone()["fresh_count"]
+
             return {
                 "total_discovered": sum(job_counts.values()),
+                "fresh_jobs_count": fresh_count,
                 "status_breakdown": job_counts,
                 "platform_breakdown": platform_counts,
                 "total_applied": total_applied
