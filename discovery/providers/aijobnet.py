@@ -82,33 +82,5 @@ class AIJobNetProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live AI-Jobs.net fetch encountered: {e}")
 
-        if not results:
-            seed_aijobs = [
-                ("Senior Generative AI & Foundation Models Engineer", "Anthropic Partner AI", "Remote", "$145k - $210k / yr"),
-                ("Machine Learning Infrastructure Engineer (PyTorch / CUDA)", "ScaleOps AI", "Worldwide Remote", "$135k - $195k / yr"),
-                ("Lead AI Evaluator & Alignment Specialist", "Cerebras Systems", "Remote / US", "$120k - $180k / yr"),
-                ("AI Application Engineer (RAG & Multi-Agent Systems)", "Cognition AI Labs", "Remote", "$130k - $190k / yr (₹35 - ₹55 LPA)"),
-                ("Deep Learning Computer Vision Engineer", "Synthesia AI", "Remote / Europe", "€95k - €140k / yr")
-            ]
-            for title, company, loc, sal in seed_aijobs:
-                url = f"https://ai-job.net/job/{title.lower().replace(' ', '-')}"
-                job_id = self.generate_job_id("ai-job.net", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="ai-job.net",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"AI-Jobs.net curated listing: {title} at {company}. Package: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"ai_job_net": True, "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active AI-Jobs.net jobs")
         return results
