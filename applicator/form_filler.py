@@ -1,5 +1,6 @@
 """Autonomous Form Filler for standard ATS portals (Greenhouse, Lever, Ashby) and universal job platforms."""
 import os
+import re
 import asyncio
 import logging
 from pathlib import Path
@@ -10,6 +11,7 @@ from playwright.async_api import Page, Frame
 from core.models import JobListing, ApplicationStatus, ApplicationRecord
 from core.database import DatabaseManager
 from core.profile_manager import ProfileManager
+from core.ghost_job_detector import DEAD_POSTING_PATTERNS
 from .browser import BrowserSessionManager
 from .screening_solver import ScreeningQuestionSolver
 from .hitl import HITLNotifier
@@ -108,11 +110,23 @@ class ApplicationAgent:
 
                 self._update_task(job.id, f"Navigating to {job.company} portal...", 30)
                 logger.info(f"Navigating stealth browser to: {target_url}")
-                await page.goto(target_url, wait_until="domcontentloaded", timeout=35000)
+                nav_response = await page.goto(target_url, wait_until="domcontentloaded", timeout=35000)
                 await asyncio.sleep(2)
 
                 # Dismiss cookie consent overlays that obstruct clicking
                 await self._dismiss_cookie_banners(page)
+
+                # Step 1.1: Dead Requisition Liveness Check - check if posting is closed or expired
+                dead_reason = await self._detect_dead_requisition(page, nav_response)
+                if dead_reason:
+                    logger.warning(f"[Dead Requisition] Job '{job.title}' at '{job.company}' ({target_url}) is closed or expired: {dead_reason}")
+                    record.status = ApplicationStatus.EXPIRED
+                    record.notes = f"Requisition closed or expired on {job.platform} portal: {dead_reason}"
+                    record.error_message = dead_reason
+                    self.db.update_job_status(job.id, ApplicationStatus.EXPIRED, actor="agent", notes=record.notes, rejection_reason=record.notes)
+                    self.db.record_application(record)
+                    self._update_task(job.id, "Position Closed / Expired", 100, is_active=False, notes=record.notes, status="EXPIRED")
+                    return record
 
                 # Step 1: Pre-form navigation - click Apply / Apply Now if on a job listing page
                 self._update_task(job.id, "Detecting ATS form inputs...", 45)
@@ -120,6 +134,18 @@ class ApplicationAgent:
 
                 # Dismiss cookie banners again in case new page or modal opened
                 await self._dismiss_cookie_banners(page)
+
+                # Step 1.2: Check redirected destination for closed requisition notice
+                post_nav_dead = await self._detect_dead_requisition(page)
+                if post_nav_dead:
+                    logger.warning(f"[Dead Requisition] Application form for '{job.title}' at '{job.company}' is closed: {post_nav_dead}")
+                    record.status = ApplicationStatus.EXPIRED
+                    record.notes = f"Requisition closed on application page: {post_nav_dead}"
+                    record.error_message = post_nav_dead
+                    self.db.update_job_status(job.id, ApplicationStatus.EXPIRED, actor="agent", notes=record.notes, rejection_reason=record.notes)
+                    self.db.record_application(record)
+                    self._update_task(job.id, "Position Closed / Expired", 100, is_active=False, notes=record.notes, status="EXPIRED")
+                    return record
 
                 # Step 2: Check for active CAPTCHA / bot challenges
                 if await self._detect_captcha(page):
@@ -195,7 +221,11 @@ class ApplicationAgent:
                 self.db.record_application(record)
 
             finally:
-                if auto_submit and record.status == ApplicationStatus.APPLIED and own_page and page and not page.is_closed():
+                should_close = (
+                    (auto_submit and record.status == ApplicationStatus.APPLIED)
+                    or record.status in (ApplicationStatus.EXPIRED, ApplicationStatus.CLOSED)
+                )
+                if should_close and own_page and page and not page.is_closed():
                     try:
                         await page.close()
                     except Exception:
@@ -257,7 +287,11 @@ class ApplicationAgent:
                     else:
                         self.batch_state["failed"] += 1
 
-                    if auto_submit and record and record.status == ApplicationStatus.APPLIED and page and not page.is_closed():
+                    should_close = (
+                        (auto_submit and record and record.status == ApplicationStatus.APPLIED)
+                        or (record and record.status in (ApplicationStatus.EXPIRED, ApplicationStatus.CLOSED))
+                    )
+                    if should_close and page and not page.is_closed():
                         try:
                             await page.close()
                         except Exception:
@@ -269,6 +303,60 @@ class ApplicationAgent:
             return results
         finally:
             self.batch_state["running"] = False
+
+    async def _detect_dead_requisition(self, page: Page, response=None) -> Optional[str]:
+        """
+        Inspects HTTP response, page title, and DOM content for dead/closed/expired job posting signatures.
+        Returns the reason string if dead, or None if the requisition appears active.
+        """
+        # 1. HTTP status code check
+        if response:
+            status = getattr(response, "status", 200)
+            if status in (404, 410):
+                return f"Portal returned HTTP {status} (Page Not Found / Gone)"
+
+        # 2. Page title check
+        try:
+            title = (await page.title() or "").lower()
+            if any(term in title for term in ["404", "not found", "page not found", "job not found", "closed"]):
+                return f"Page title indicates closed requisition: '{title[:60]}'"
+        except Exception:
+            pass
+
+        # 3. Dedicated ATS expired / closed element selectors
+        ats_dead_selectors = [
+            ".expired",
+            "#flash-messages:has-text('no longer available')",
+            "#flash-messages:has-text('has been filled')",
+            "h1:has-text('Job not found')",
+            "h2:has-text('Job not found')",
+            "h1:has-text('This job is no longer available')",
+            "h2:has-text('This job is no longer available')",
+            ".posting-headline:has-text('no longer available')",
+            "[data-automation-id='jobPostingClosed']",
+            ".closed-job-message",
+            ".job-expired-message"
+        ]
+        for sel in ats_dead_selectors:
+            try:
+                el = await page.query_selector(sel)
+                if el and await el.is_visible():
+                    text = (await el.inner_text() or "").strip()
+                    return f"ATS closed indicator detected ('{sel}'): {text[:80]}"
+            except Exception:
+                pass
+
+        # 4. Body text pattern check
+        try:
+            body_text = (await page.inner_text("body", timeout=3000) or "").lower()[:20000]
+            for pat in DEAD_POSTING_PATTERNS:
+                m = re.search(pat, body_text)
+                if m:
+                    return f"Portal states requisition is inactive: '{m.group(0)}'"
+        except Exception:
+            pass
+
+        return None
 
     async def _dismiss_cookie_banners(self, page: Page):
         """Dismisses common GDPR / cookie consent banners that obstruct form interaction."""
