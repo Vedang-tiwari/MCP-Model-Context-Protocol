@@ -21,6 +21,8 @@ class ApplicationStatus(str, Enum):
     RESPONSE_RECEIVED = "RESPONSE_RECEIVED"
     INTERVIEW = "INTERVIEW"
     REJECTED = "REJECTED"
+    EXPIRED = "EXPIRED"              # Requisition closed or expired on career portal
+    CLOSED = "CLOSED"                # Position filled or deactivated
 
     # Backward compatibility aliases
     APPLIED = "APPLIED"              # Maps logically to SUBMITTED
