@@ -30,6 +30,7 @@ data/resumes/resume_fde.docx
 !config/resume.pdf
 !data/resumes/resume_ai_engineer.pdf
 !data/resumes/resume_fde.pdf
+!data/templates/mcp-resume-template.docx
 
 # Local databases and browser profile sessions
 data/*.db
