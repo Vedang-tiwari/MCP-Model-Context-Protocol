@@ -67,9 +67,12 @@ class TestResumeTailorAgent(unittest.TestCase):
         artifacts = asyncio.run(self.agent.tailor_for_job(job, generate_pdf=False))
         self.assertTrue(artifacts.audit_passed)
         self.assertEqual(len(artifacts.audit_violations), 0)
-        self.assertIn("ALEX MERCER", artifacts.ats_text)
+        self.assertIn("VEDANG TIWARI", artifacts.ats_text)
         self.assertIn("TechNova Solutions", artifacts.ats_text)
-        self.assertIn("University of California, Berkeley", artifacts.ats_text)
+        self.assertIn("St. Andrews Institute of Technology & Management", artifacts.ats_text)
+        self.assertIn("OBJECTIVE", artifacts.ats_text)
+        self.assertIn("EDUCATION", artifacts.ats_text)
+        self.assertIn("SKILL SUMMARY", artifacts.ats_text)
 
     def test_zero_fabrication_audit_catches_hallucinations(self):
         p_yaml = self.profile_mgr.get_profile_yaml()
@@ -106,7 +109,7 @@ class TestResumeTailorAgent(unittest.TestCase):
         words = artifacts.cover_letter.split()
         self.assertLessEqual(len(words), 200)
         self.assertIn("Stripe", artifacts.cover_letter)
-        self.assertIn("Alex Mercer", artifacts.cover_letter)
+        self.assertIn("Vedang Tiwari", artifacts.cover_letter)
 
     def test_api_tailor_job_resume(self):
         # Insert a job in database
