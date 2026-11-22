@@ -181,6 +181,14 @@
         </select>
 
         <button class="button button-secondary button-sm" id="btn-reset-filters">Reset</button>
+        <button 
+          class="button button-secondary button-sm" 
+          id="btn-purge-ghosts" 
+          title="Eliminate fake dummy seed employers, expired postings, and placeholder URLs from database"
+          style="white-space: nowrap;"
+        >
+          🧹 Clean Ghost Jobs
+        </button>
 
         <div style="display: flex; gap: 8px; margin-left: auto; align-items: center;">
           <button 
@@ -355,6 +363,129 @@
           <p class="section-subtitle">Structured credentials, screening answer bank, and multi-role preferences for the LLM solver.</p>
         </div>
         <button class="button button-primary" id="btn-save-profile">Save Changes</button>
+      </div>
+
+      <!-- Official Candidate Resume Template Card -->
+      <div class="panel" id="official-template-panel" style="margin-bottom: var(--space-5); border-left: 3px solid var(--color-success); background: rgba(74, 222, 128, 0.02);">
+        <div class="panel-header" style="justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="badge badge-success" style="font-size: 10px;">OFFICIAL WORD ATS TEMPLATE</span>
+              <span class="badge" style="background: rgba(255, 255, 255, 0.08);">mcp-resume-template.docx</span>
+            </div>
+            <h2 style="font-size: 16px; font-weight: 600; color: var(--color-text); margin-top: 4px;">Candidate Master Resume Template: Vedang Tiwari</h2>
+            <p class="input-hint" style="margin-top: 2px;">
+              Active single-column ATS Word template strictly enforced for all autonomous and tailored applications. Features zero-fabrication ground truth, dynamic objective synthesis, and role-prioritized tech stacks.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a href="/api/template/resume/download" class="button button-secondary button-sm" id="btn-download-vault-template" download style="text-decoration: none;">
+              📥 Download Template (.docx)
+            </a>
+            <button class="button button-secondary button-sm" id="btn-toggle-template-preview" type="button">
+              👁️ View Template Layout
+            </button>
+            <select class="select" id="vault-select-job-custom" style="max-width: 260px; height: 32px; font-size: 12px; padding: 2px 8px;">
+              <option value="">✏️ Edit Resume for a Job...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Collapsible Template Layout Preview -->
+        <div id="vault-template-preview-card" style="display: none; margin-top: var(--space-4); padding: var(--space-4); background: var(--color-surface-inset); border-radius: var(--radius-sm); border: 1px solid var(--color-border);">
+          <div style="max-width: 760px; margin: 0 auto; background: #ffffff; color: #111111; padding: 28px 36px; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; line-height: 1.4;">
+            <div style="text-align: center; border-bottom: 1.5px solid #222222; padding-bottom: 8px; margin-bottom: 12px;">
+              <div style="font-size: 18px; font-weight: bold; letter-spacing: 0.5px; color: #000000;">VEDANG TIWARI</div>
+              <div style="font-size: 10px; color: #444444; margin-top: 3px;">Email: vedangt027@gmail.com | Mob: +91 8527157603 | GitHub | LinkedIn | Portfolio</div>
+              <div style="font-size: 9.5px; color: #555555; margin-top: 2px; font-style: italic;">Open to Relocation | Willing to work remotely</div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">OBJECTIVE</div>
+              <div style="font-size: 10.5px; color: #222222; text-align: justify;" id="tmpl-preview-objective">
+                AI/ML and Software Engineering practitioner specializing in autonomous agent workflows, distributed backend systems, and full-stack application development. Experienced in building high-throughput APIs, data pipelines, and stealth browser automation using Python, FastAPI, Playwright, React, PostgreSQL, and Docker.
+              </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">EDUCATION</div>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                <span>Bachelor of Technology in Computer Science & Engineering</span>
+                <span style="color: #444444;">08/2023 – 05/2027</span>
+              </div>
+              <div style="color: #444444; font-size: 10.5px;">St. Andrews Institute of Technology & Management, Gurgaon</div>
+              <div style="color: #333333; font-size: 10px; margin-top: 2px;">Relevant Coursework: Data Structures & Algorithms, Operating Systems, Database Management Systems, Machine Learning</div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">EXPERIENCE</div>
+              <div style="margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Software Engineer – TechNova Solutions</span>
+                  <span style="font-weight: normal; font-style: italic; color: #444444;">Remote | 01/2023 – Present</span>
+                </div>
+                <ul style="margin: 3px 0 0 16px; padding: 0; font-size: 10px; color: #222222;">
+                  <li>Architected real-time data ingestion pipelines handling 2M+ records daily with Python, FastAPI, and Playwright.</li>
+                  <li>Built resilient microservices and agentic workflow integrations using Python, FastAPI, and PostgreSQL, cutting p99 latency by 45%.</li>
+                  <li>Integrated Redis caching, Docker containerization, and GitHub Actions CI/CD automation with 99.9% uptime.</li>
+                </ul>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Software Engineering Intern – Apex Cloud Systems</span>
+                  <span style="font-weight: normal; font-style: italic; color: #444444;">Remote | 06/2022 – 12/2022</span>
+                </div>
+                <ul style="margin: 3px 0 0 16px; padding: 0; font-size: 10px; color: #222222;">
+                  <li>Designed automated workflow engines in Python and React used across 12 distributed enterprise client systems.</li>
+                  <li>Engineered REST and GraphQL endpoints with automated unit and integration regression test suites.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">PROJECTS</div>
+              <div style="margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Autonomous Agent Orchestrator</span>
+                  <span style="text-decoration: underline; color: #0044cc;">GitHub</span>
+                </div>
+                <div style="font-size: 9.5px; font-weight: bold; color: #333333; margin-top: 1px;">Technologies Used: Python, FastAPI, Playwright, SQLite, LangChain</div>
+                <ul style="margin: 2px 0 0 16px; padding: 0; font-size: 10px; color: #222222;">
+                  <li>Architected 24/7 autonomous job scouting and application system with multi-ATS integration and stealth Playwright automation.</li>
+                  <li>Implemented dynamic form-filling heuristics, LLM-based profile grounding, and zero-fabrication resume tailoring.</li>
+                </ul>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Distributed Event Pipeline</span>
+                  <span style="text-decoration: underline; color: #0044cc;">GitHub</span>
+                </div>
+                <div style="font-size: 9.5px; font-weight: bold; color: #333333; margin-top: 1px;">Technologies Used: Go, Kafka, PostgreSQL, Redis, Docker</div>
+                <ul style="margin: 2px 0 0 16px; padding: 0; font-size: 10px; color: #222222;">
+                  <li>Engineered high-throughput event-driven worker pool processing 10k+ events/sec across streaming webhook channels.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">SKILL SUMMARY</div>
+              <div style="font-size: 10px; color: #222222; display: flex; flex-direction: column; gap: 2px;">
+                <div><span style="font-weight: bold;">Languages:</span> Python, TypeScript, JavaScript, SQL, Go, HTML/CSS</div>
+                <div><span style="font-weight: bold;">Frameworks & Tools:</span> FastAPI, React, Playwright, Node.js, Express, LangChain</div>
+                <div><span style="font-weight: bold;">Engineering & DevOps:</span> Docker, Git, GitHub Actions, CI/CD, Linux, REST APIs, GraphQL</div>
+                <div><span style="font-weight: bold;">Databases:</span> PostgreSQL, Redis, SQLite, MongoDB</div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">CERTIFICATIONS</div>
+              <div style="font-size: 10px; color: #222222; display: flex; justify-content: space-between;">
+                <span>Python for Data Science & AI – IBM</span>
+                <span>Machine Learning Specialization – DeepLearning.AI</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Dynamic Role-Tailored Resume Matrix -->
@@ -668,6 +799,9 @@
           Open Official Posting ↗
         </a>
         <div style="display: flex; gap: var(--space-2);">
+          <button class="button button-secondary button-sm" id="btn-job-modal-edit-resume" title="Edit and customize candidate resume specifically for this job on the official Word template">
+            ✏️ Edit Resume
+          </button>
           <button class="button button-secondary button-sm" id="btn-tailor-resume" title="Run Resume Tailor Agent for this specific job">
             📄 Tailor Resume
           </button>
@@ -738,8 +872,12 @@
         <div style="display: flex; gap: 8px;">
           <button class="button button-secondary button-sm" id="btn-copy-ats-text">📋 Copy ATS Text</button>
           <button class="button button-secondary button-sm" id="btn-copy-cover-letter">✉️ Copy Cover Letter</button>
+          <button class="button button-secondary button-sm" id="btn-tailor-modal-edit" title="Customize bullet points, objective, or skills on the official Word template">✏️ Edit in Template</button>
         </div>
         <div style="display: flex; gap: 8px;">
+          <a href="#" target="_blank" class="button button-secondary button-sm" id="btn-download-tailored-docx" style="display: none; text-decoration: none;">
+            📥 Download .docx
+          </a>
           <a href="#" target="_blank" class="button button-secondary button-sm" id="btn-download-tailored-pdf" style="display: none; text-decoration: none;">
             📥 Download ATS PDF
           </a>
@@ -748,6 +886,246 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Dedicated Job Resume Customizer Modal (Official Word Template) -->
+  <div class="modal-backdrop" id="custom-resume-modal">
+    <div class="modal-card" style="max-width: 860px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="badge badge-success" style="font-size: 10px;">JOB RESUME EDITOR</span>
+            <span class="badge" style="background: rgba(255, 255, 255, 0.08);">OFFICIAL WORD TEMPLATE</span>
+            <span class="score-pill" id="crm-score-pill">0%</span>
+          </div>
+          <h2 id="crm-title" style="font-size: 18px; font-weight: 600; color: var(--color-text); margin-top: 4px;">Customize Resume for Role</h2>
+          <div id="crm-sub" style="font-size: 13px; color: var(--color-text-muted);">Company Name · Platform</div>
+        </div>
+        <button class="button button-secondary button-sm" id="btn-close-crm-modal">✕</button>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--color-border); padding: 8px 16px 0 16px; background: var(--color-surface-inset);">
+        <button class="button button-secondary button-xs crm-tab active" data-tab="crm-tab-editor" style="border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
+          ✏️ Edit Template Fields
+        </button>
+        <button class="button button-secondary button-xs crm-tab" data-tab="crm-tab-preview" style="border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
+          📄 Word Layout Preview
+        </button>
+        <button class="button button-secondary button-xs crm-tab" data-tab="crm-tab-cover" style="border-bottom-left-radius: 0; border-bottom-right-radius: 0;">
+          ✉️ Cover Letter
+        </button>
+      </div>
+
+      <div class="modal-body" style="overflow-y: auto; flex: 1; padding: 16px;">
+        <!-- TAB 1: Content Editor -->
+        <div id="crm-tab-editor">
+          <!-- OBJECTIVE SECTION -->
+          <div class="form-group" style="margin-bottom: var(--space-4);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="input-label" style="font-weight: 600; color: var(--color-text);">1. OBJECTIVE / PROFESSIONAL SUMMARY</label>
+              <span class="badge" style="font-size: 10px;">ATS Target Summary</span>
+            </div>
+            <textarea class="textarea" id="crm-objective" rows="3" placeholder="Target role summary tailored for this specific requisition..."></textarea>
+            <p class="input-hint">Summarizes core focus areas, seniority, and key technologies relevant to this specific role.</p>
+          </div>
+
+          <!-- EXPERIENCE SECTION -->
+          <div style="margin-bottom: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 12px; background: var(--color-surface-inset);">
+            <div style="font-weight: 600; font-size: 13px; color: var(--color-text); margin-bottom: 8px;">2. EXPERIENCE BULLETS</div>
+            
+            <!-- TechNova Solutions -->
+            <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--color-border);">
+              <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--color-accent); margin-bottom: 6px;">
+                <span>TechNova Solutions (Software Engineer, 01/2023 – Present)</span>
+                <span style="font-style: italic; color: var(--color-text-muted);">Remote</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="text" class="input" id="crm-exp1-b1" style="font-size: 12px;" placeholder="Bullet 1 (Real-time ingestion pipelines...)">
+                <input type="text" class="input" id="crm-exp1-b2" style="font-size: 12px;" placeholder="Bullet 2 (Microservices & agentic workflows...)">
+                <input type="text" class="input" id="crm-exp1-b3" style="font-size: 12px;" placeholder="Bullet 3 (Redis caching & CI/CD automation...)">
+              </div>
+            </div>
+
+            <!-- Apex Cloud Systems -->
+            <div>
+              <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--color-accent); margin-bottom: 6px;">
+                <span>Apex Cloud Systems (Software Engineering Intern, 06/2022 – 12/2022)</span>
+                <span style="font-style: italic; color: var(--color-text-muted);">Remote</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="text" class="input" id="crm-exp2-b1" style="font-size: 12px;" placeholder="Bullet 1 (Automated workflow engines in Python & React...)">
+                <input type="text" class="input" id="crm-exp2-b2" style="font-size: 12px;" placeholder="Bullet 2 (REST & GraphQL regression suites...)">
+                <input type="text" class="input" id="crm-exp2-b3" style="font-size: 12px;" placeholder="Bullet 3 (Docker & GitHub Actions CI pipeline...)">
+              </div>
+            </div>
+          </div>
+
+          <!-- PROJECTS SECTION -->
+          <div style="margin-bottom: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 12px; background: var(--color-surface-inset);">
+            <div style="font-weight: 600; font-size: 13px; color: var(--color-text); margin-bottom: 8px;">3. FEATURED PROJECTS</div>
+            
+            <!-- Project 1 -->
+            <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--color-border);">
+              <div style="font-size: 12px; font-weight: 600; color: var(--color-accent); margin-bottom: 4px;">Project 1: Autonomous Agent Orchestrator</div>
+              <div style="margin-bottom: 6px;">
+                <label style="font-size: 11px; color: var(--color-text-muted);">Technologies Used:</label>
+                <input type="text" class="input" id="crm-proj1-tech" style="font-size: 12px;" placeholder="Python, FastAPI, Playwright, SQLite, LangChain">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="text" class="input" id="crm-proj1-b1" style="font-size: 12px;" placeholder="Project 1 Bullet 1">
+                <input type="text" class="input" id="crm-proj1-b2" style="font-size: 12px;" placeholder="Project 1 Bullet 2">
+              </div>
+            </div>
+
+            <!-- Project 2 -->
+            <div>
+              <div style="font-size: 12px; font-weight: 600; color: var(--color-accent); margin-bottom: 4px;">Project 2: Distributed Event Pipeline</div>
+              <div style="margin-bottom: 6px;">
+                <label style="font-size: 11px; color: var(--color-text-muted);">Technologies Used:</label>
+                <input type="text" class="input" id="crm-proj2-tech" style="font-size: 12px;" placeholder="Go, Kafka, PostgreSQL, Redis, Docker">
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                <input type="text" class="input" id="crm-proj2-b1" style="font-size: 12px;" placeholder="Project 2 Bullet 1">
+                <input type="text" class="input" id="crm-proj2-b2" style="font-size: 12px;" placeholder="Project 2 Bullet 2">
+              </div>
+            </div>
+          </div>
+
+          <!-- SKILLS SUMMARY SECTION -->
+          <div style="margin-bottom: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 12px; background: var(--color-surface-inset);">
+            <div style="font-weight: 600; font-size: 13px; color: var(--color-text); margin-bottom: 8px;">4. SKILL SUMMARY</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label style="font-size: 11px; color: var(--color-text-muted);">Languages (comma-separated):</label>
+                <input type="text" class="input" id="crm-skills-lang" style="font-size: 12px;" placeholder="Python, TypeScript, JavaScript, SQL, Go">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--color-text-muted);">Frameworks & Tools:</label>
+                <input type="text" class="input" id="crm-skills-frameworks" style="font-size: 12px;" placeholder="FastAPI, React, Playwright, Node.js, Express">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--color-text-muted);">Engineering & DevOps:</label>
+                <input type="text" class="input" id="crm-skills-devops" style="font-size: 12px;" placeholder="Docker, Git, GitHub Actions, CI/CD, Linux, REST APIs">
+              </div>
+              <div>
+                <label style="font-size: 11px; color: var(--color-text-muted);">Databases:</label>
+                <input type="text" class="input" id="crm-skills-databases" style="font-size: 12px;" placeholder="PostgreSQL, Redis, SQLite, MongoDB">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: Live Word Template Preview -->
+        <div id="crm-tab-preview" style="display: none;">
+          <div style="max-width: 760px; margin: 0 auto; background: #ffffff; color: #111111; padding: 28px 36px; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; line-height: 1.4;">
+            <div style="text-align: center; border-bottom: 1.5px solid #222222; padding-bottom: 8px; margin-bottom: 12px;">
+              <div style="font-size: 18px; font-weight: bold; color: #000000;" id="crm-pv-name">VEDANG TIWARI</div>
+              <div style="font-size: 10px; color: #444444; margin-top: 3px;" id="crm-pv-contact">Email: vedangt027@gmail.com | Mob: +91 8527157603 | GitHub | LinkedIn | Portfolio</div>
+              <div style="font-size: 9.5px; color: #555555; margin-top: 2px; font-style: italic;">Open to Relocation | Willing to work remotely</div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">OBJECTIVE</div>
+              <div style="font-size: 10.5px; color: #222222; text-align: justify;" id="crm-pv-objective">-</div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">EDUCATION</div>
+              <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                <span>Bachelor of Technology in Computer Science & Engineering</span>
+                <span style="color: #444444;">08/2023 – 05/2027</span>
+              </div>
+              <div style="color: #444444; font-size: 10.5px;">St. Andrews Institute of Technology & Management, Gurgaon</div>
+              <div style="color: #333333; font-size: 10px; margin-top: 2px;">Relevant Coursework: Data Structures & Algorithms, Operating Systems, Database Management Systems, Machine Learning</div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">EXPERIENCE</div>
+              <div style="margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Software Engineer – TechNova Solutions</span>
+                  <span style="font-weight: normal; font-style: italic; color: #444444;">Remote | 01/2023 – Present</span>
+                </div>
+                <ul style="margin: 3px 0 0 16px; padding: 0; font-size: 10px; color: #222222;" id="crm-pv-exp1-bullets"></ul>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Software Engineering Intern – Apex Cloud Systems</span>
+                  <span style="font-weight: normal; font-style: italic; color: #444444;">Remote | 06/2022 – 12/2022</span>
+                </div>
+                <ul style="margin: 3px 0 0 16px; padding: 0; font-size: 10px; color: #222222;" id="crm-pv-exp2-bullets"></ul>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">PROJECTS</div>
+              <div style="margin-bottom: 6px;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Autonomous Agent Orchestrator</span>
+                  <span style="text-decoration: underline; color: #0044cc;">GitHub</span>
+                </div>
+                <div style="font-size: 9.5px; font-weight: bold; color: #333333; margin-top: 1px;" id="crm-pv-proj1-tech">Technologies Used: Python, FastAPI, Playwright, SQLite, LangChain</div>
+                <ul style="margin: 2px 0 0 16px; padding: 0; font-size: 10px; color: #222222;" id="crm-pv-proj1-bullets"></ul>
+              </div>
+              <div>
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px;">
+                  <span>Distributed Event Pipeline</span>
+                  <span style="text-decoration: underline; color: #0044cc;">GitHub</span>
+                </div>
+                <div style="font-size: 9.5px; font-weight: bold; color: #333333; margin-top: 1px;" id="crm-pv-proj2-tech">Technologies Used: Go, Kafka, PostgreSQL, Redis, Docker</div>
+                <ul style="margin: 2px 0 0 16px; padding: 0; font-size: 10px; color: #222222;" id="crm-pv-proj2-bullets"></ul>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 10px;">
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">SKILL SUMMARY</div>
+              <div style="font-size: 10px; color: #222222; display: flex; flex-direction: column; gap: 2px;">
+                <div id="crm-pv-skills-lang"><span style="font-weight: bold;">Languages:</span> -</div>
+                <div id="crm-pv-skills-frameworks"><span style="font-weight: bold;">Frameworks & Tools:</span> -</div>
+                <div id="crm-pv-skills-devops"><span style="font-weight: bold;">Engineering & DevOps:</span> -</div>
+                <div id="crm-pv-skills-databases"><span style="font-weight: bold;">Databases:</span> -</div>
+              </div>
+            </div>
+
+            <div>
+              <div style="font-weight: bold; font-size: 12px; color: #000000; border-bottom: 1px solid #cccccc; padding-bottom: 2px; margin-bottom: 4px;">CERTIFICATIONS</div>
+              <div style="font-size: 10px; color: #222222; display: flex; justify-content: space-between;">
+                <span>Python for Data Science & AI – IBM</span>
+                <span>Machine Learning Specialization – DeepLearning.AI</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: Cover Letter -->
+        <div id="crm-tab-cover" style="display: none;">
+          <div class="form-group">
+            <label class="input-label" style="font-weight: 600; color: var(--color-text);">Tailored Cover Letter</label>
+            <textarea class="textarea" id="crm-cover-letter" rows="8" placeholder="Role-specific cover letter grounded in candidate experience..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="justify-content: space-between;">
+        <div style="display: flex; gap: 8px;">
+          <button class="button button-secondary button-sm" id="btn-crm-cancel">Cancel</button>
+          <a href="#" class="button button-secondary button-sm" id="btn-crm-download-docx" target="_blank" download style="text-decoration: none;">
+            📥 Download .docx
+          </a>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="button button-secondary button-sm" id="btn-crm-save" style="font-weight: 600;">
+            💾 Save Custom Resume
+          </button>
+          <button class="button button-primary button-sm" id="btn-crm-apply">
+            🚀 Apply with this Resume
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
     </div>
   </div>
 
