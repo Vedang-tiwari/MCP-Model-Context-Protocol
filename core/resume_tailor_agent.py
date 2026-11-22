@@ -342,21 +342,25 @@ class ResumeTailorAgent:
 
     def _order_skills_by_category(self, skills: Dict[str, Any], analysis: Dict[str, Any]) -> Dict[str, List[str]]:
         """
-        Groups candidate skills into standard ATS categories and promotes matching skills to the front.
+        Groups candidate skills into standard ATS categories matching the candidate template:
+        - Languages
+        - Frameworks & Web
+        - Cloud, DevOps & Systems
+        - Databases
+        Promotes matched skills to the front of each category.
         """
         all_skills = skills.get("strong", []) + skills.get("familiar", [])
-        matched_set = {s.lower() for s in (analysis["matched_strong_skills"] + analysis["matched_familiar_skills"])}
+        matched_set = {s.lower() for s in (analysis.get("matched_strong_skills", []) + analysis.get("matched_familiar_skills", []))}
 
         categories = {
-            "Languages & Core": ["Python", "TypeScript", "JavaScript", "Go", "SQL", "HTML/CSS"],
-            "Frameworks & Web": ["FastAPI", "React", "Next.js", "LangChain", "REST APIs", "GraphQL"],
-            "Databases & Storage": ["PostgreSQL", "Redis", "MongoDB", "SQLite"],
-            "Cloud, DevOps & Automation": ["Docker", "Kubernetes", "AWS", "Playwright", "Git", "CI/CD"]
+            "Languages": ["Python", "TypeScript", "JavaScript", "Go", "SQL"],
+            "Frameworks & Web": ["FastAPI", "React", "Next.js", "Node.js", "Playwright", "LangChain", "REST APIs", "GraphQL"],
+            "Cloud, DevOps & Systems": ["Docker", "Kubernetes", "AWS", "Git", "GitHub Actions", "CI/CD"],
+            "Databases": ["PostgreSQL", "Redis", "SQLite", "MongoDB"]
         }
 
         result = {}
         for cat, items in categories.items():
-            # Filter to items candidate actually has in profile
             cand_items = [s for s in all_skills if any(i.lower() == s.lower() for i in items)]
             if not cand_items:
                 continue
@@ -367,7 +371,7 @@ class ResumeTailorAgent:
 
         return result
 
-    def _generate_tailored_summary(
+    def _generate_tailored_objective(
         self,
         role_title: str,
         company: str,
@@ -375,23 +379,85 @@ class ResumeTailorAgent:
         profile: Dict[str, Any]
     ) -> str:
         """
-        Synthesizes a 2-3 sentence role-focused summary grounded in candidate's factual achievements.
+        Synthesizes an ATS-tailored Objective strictly adhering to candidate's resume template:
+        [level, e.g. AI/ML undergraduate] and [target-role practitioner, e.g. Backend Engineering]
+        specializing in [core focus area] and [secondary focus area].
+        Experienced in building [what you build: apps, APIs, systems] using [6–8 tools relevant to the target role].
         """
-        exp = profile.get("experience", [])
-        years_exp = "5+" if len(exp) >= 2 else "3+"
-        top_skills = analysis["matched_strong_skills"][:4]
-        if not top_skills:
-            top_skills = profile.get("skills", {}).get("strong", [])[:4]
+        domain = analysis.get("domain", "Software Engineering")
+        title_lower = role_title.lower()
 
-        skills_str = ", ".join(top_skills)
-        domain = analysis["domain"]
+        # 1. Level determination
+        level = "Computer Science & Engineering undergraduate"
+        if "ai" in title_lower or "ml" in title_lower or "machine learning" in domain.lower():
+            level = "AI/ML undergraduate"
+
+        # 2. Target-role practitioner
+        if "ai" in title_lower or "machine learning" in title_lower or "ml" in title_lower:
+            practitioner = "AI/ML practitioner"
+        elif "backend" in title_lower or "distributed" in title_lower:
+            practitioner = "Backend Engineering practitioner"
+        elif "full stack" in title_lower or "fullstack" in title_lower:
+            practitioner = "Full Stack Engineering practitioner"
+        elif "devops" in title_lower or "cloud" in title_lower or "platform" in title_lower:
+            practitioner = "Cloud & DevOps practitioner"
+        elif "forward deployed" in title_lower or "fde" in title_lower:
+            practitioner = "Forward Deployed Engineering practitioner"
+        else:
+            practitioner = f"{role_title} practitioner"
+
+        # 3. Core focus area and secondary focus area
+        if "ai" in title_lower or "machine learning" in title_lower:
+            core_focus = "autonomous agent architectures"
+            secondary_focus = "scalable LLM orchestration pipelines"
+        elif "backend" in title_lower:
+            core_focus = "high-throughput distributed microservices"
+            secondary_focus = "event-driven data pipelines"
+        elif "full stack" in title_lower:
+            core_focus = "scalable web applications"
+            secondary_focus = "interactive frontend systems"
+        elif "devops" in title_lower or "cloud" in title_lower:
+            core_focus = "container orchestration"
+            secondary_focus = "automated CI/CD cloud infrastructure"
+        else:
+            core_focus = "autonomous agent systems"
+            secondary_focus = "robust backend architectures"
+
+        # 4. What you build
+        if "ai" in title_lower:
+            what_build = "intelligent multi-agent workflows, autonomous tool execution loops, and high-performance APIs"
+        elif "backend" in title_lower:
+            what_build = "resilient microservices, streaming ingestion pipelines, and REST/GraphQL APIs"
+        else:
+            what_build = "scalable web platforms, autonomous workflow engines, and reliable backend services"
+
+        # 5. Tools (6-8 tools relevant to target role from matched and candidate profile skills)
+        matched = analysis.get("matched_strong_skills", []) + analysis.get("matched_familiar_skills", [])
+        all_skills = profile.get("skills", {}).get("strong", []) + profile.get("skills", {}).get("familiar", [])
+        ordered_tools = []
+        for s in matched + all_skills:
+            if s not in ordered_tools and s.lower() not in ["sql", "html/css", "git"]:
+                ordered_tools.append(s)
+
+        tools_slice = ordered_tools[:7] if len(ordered_tools) >= 7 else ordered_tools
+        if len(tools_slice) > 1:
+            tools_str = ", ".join(tools_slice[:-1]) + f", and {tools_slice[-1]}"
+        else:
+            tools_str = ", ".join(tools_slice)
 
         return (
-            f"Results-driven {role_title} with {years_exp} years of production experience in {domain.lower()}, "
-            f"specializing in {skills_str}. Proven track record designing scalable microservices, high-throughput "
-            f"data processing pipelines, and resilient automation frameworks at scale. Dedicated to delivering clean, "
-            f"type-safe, and thoroughly tested engineering solutions aligned with {company}'s technical roadmap."
+            f"{level} and {practitioner} specializing in {core_focus} and {secondary_focus}. "
+            f"Experienced in building {what_build} using {tools_str}."
         )
+
+    def _generate_tailored_summary(
+        self,
+        role_title: str,
+        company: str,
+        analysis: Dict[str, Any],
+        profile: Dict[str, Any]
+    ) -> str:
+        return self._generate_tailored_objective(role_title, company, analysis, profile)
 
     def _generate_cover_letter(
         self,
@@ -404,14 +470,14 @@ class ResumeTailorAgent:
         Synthesizes a concise (<= 200 words) cover letter highlighting specific matching skills.
         """
         identity = profile.get("identity", {})
-        full_name = identity.get("full_name", "Applicant")
+        full_name = identity.get("full_name", "Vedang Tiwari")
         experience = profile.get("experience", [])
 
         top_exp = experience[0] if experience else {}
-        curr_role = top_exp.get("title", "Senior Software Engineer")
+        curr_role = top_exp.get("title", "Software Engineer")
         curr_comp = top_exp.get("company", "TechNova Solutions")
 
-        matched = analysis["matched_strong_skills"][:3]
+        matched = analysis.get("matched_strong_skills", [])[:3]
         skill_text = ", ".join(matched) if matched else "Python, FastAPI, and scalable system design"
 
         lines = [
@@ -491,86 +557,121 @@ class ResumeTailorAgent:
 
     def _render_ats_text(self, tailored: Dict[str, Any], profile: Dict[str, Any]) -> str:
         """
-        Renders clean, single-column ATS text formatted for plain-text pasting or parsers.
+        Renders clean, single-column ATS text formatted strictly matching the candidate's resume template.
         """
         identity = profile.get("identity", {})
+        full_name = identity.get("full_name", "VEDANG TIWARI").upper()
+        email = identity.get("email", "vedangt027@gmail.com")
+        phone = identity.get("phone", "+91 8527157603")
+        tagline = identity.get("tagline", "Open to Relocation | Willing to work remotely")
+
         lines = [
-            identity.get("full_name", "Applicant").upper(),
-            f"{identity.get('email', '')} | {identity.get('phone', '')} | {identity.get('location', {}).get('city', '')}, {identity.get('location', {}).get('country', '')}",
-            f"LinkedIn: {identity.get('links', {}).get('linkedin', '')} | GitHub: {identity.get('links', {}).get('github', '')}",
+            full_name,
+            f"Email: {email} | Mob: {phone} | GitHub | LinkedIn | Portfolio",
+            tagline,
             "",
-            "PROFESSIONAL SUMMARY",
+            "OBJECTIVE",
             tailored.get("summary", ""),
             "",
-            "TECHNICAL SKILLS"
+            "EDUCATION"
         ]
 
-        for cat, sk_list in tailored.get("ordered_skills", {}).items():
-            lines.append(f"• {cat}: {', '.join(sk_list)}")
+        for edu in profile.get("education", []):
+            deg = edu.get("degree", "Bachelor of Technology in Computer Science & Engineering")
+            dates = edu.get("dates", "08/2023 – 05/2027")
+            inst = edu.get("institution", "St. Andrews Institute of Technology & Management, Gurgaon")
+            coursework = edu.get("coursework", ["Data Structures & Algorithms", "Operating Systems", "Database Management Systems", "Machine Learning", "Computer Networks"])
+            lines.append(f"{deg}\t{dates}")
+            lines.append(inst)
+            lines.append(f"Relevant Coursework: {', '.join(coursework)}")
 
-        lines.extend(["", "PROFESSIONAL EXPERIENCE"])
+        lines.extend(["", "EXPERIENCE"])
         for exp in tailored.get("experience", []):
-            loc_str = f" — {exp.get('location')}" if exp.get('location') else ""
-            lines.append(f"{exp.get('title')} | {exp.get('company')}{loc_str}")
-            lines.append(f"{exp.get('dates', '')}")
+            title = exp.get("title", "")
+            comp = exp.get("company", "")
+            loc = exp.get("location", "Remote")
+            dates = exp.get("dates", "")
+            lines.append(f"{title} – {comp}\t{loc} | {dates}")
             for b in exp.get("bullets", []):
-                lines.append(f"  • {b}")
+                lines.append(f"• {b}")
             lines.append("")
 
         if tailored.get("projects"):
-            lines.append("FEATURED PROJECTS")
+            lines.append("PROJECTS")
             for proj in tailored.get("projects", []):
-                stack_str = f" (Tech Stack: {', '.join(proj.get('stack', []))})" if proj.get('stack') else ""
-                lines.append(f"{proj.get('name')}{stack_str}")
-                lines.append(f"  • {proj.get('impact')}")
-                if proj.get('link'):
-                    lines.append(f"  • Link: {proj.get('link')}")
+                name = proj.get("name", "")
+                techs = proj.get("technologies") or proj.get("stack") or []
+                lines.append(f"{name}\tGitHub")
+                if techs:
+                    lines.append(f"Technologies Used: {', '.join(techs)}")
+                bullets = proj.get("bullets") or ([proj.get("impact")] if proj.get("impact") else [])
+                for b in bullets:
+                    lines.append(f"• {b}")
                 lines.append("")
 
-        if profile.get("education"):
-            lines.append("EDUCATION")
-            for edu in profile.get("education", []):
-                score_str = f" (GPA: {edu.get('score')})" if edu.get('score') else ""
-                lines.append(f"{edu.get('degree')} in {edu.get('field_of_study')} — {edu.get('institution')} ({edu.get('graduation_year')}){score_str}")
-            lines.append("")
+        lines.append("SKILL SUMMARY")
+        for cat, sk_list in tailored.get("ordered_skills", {}).items():
+            lines.append(f"{cat}: {', '.join(sk_list)}")
 
         if profile.get("certifications"):
-            lines.append("CERTIFICATIONS")
-            for cert in profile.get("certifications", []):
-                lines.append(f"• {cert.get('name')} — {cert.get('issuer')} ({cert.get('year')})")
+            lines.extend(["", "CERTIFICATIONS"])
+            certs = profile.get("certifications", [])
+            for i in range(0, len(certs), 2):
+                c1 = f"{certs[i].get('name')} – {certs[i].get('issuer')}"
+                if i + 1 < len(certs):
+                    c2 = f"{certs[i+1].get('name')} – {certs[i+1].get('issuer')}"
+                    lines.append(f"{c1}\t{c2}")
+                else:
+                    lines.append(c1)
 
-        return "\n".join(lines)
+        return "\n".join(lines).strip()
 
     async def _render_pdf(self, tailored: Dict[str, Any], profile: Dict[str, Any], output_path: Path) -> bool:
         """
         Renders an ATS-safe, clean, single-column HTML template directly to PDF via Playwright Chromium.
+        Strictly conforms to candidate's resume template.
         """
         identity = profile.get("identity", {})
-        full_name = identity.get("full_name", "Applicant")
-        email = identity.get("email", "")
-        phone = identity.get("phone", "")
-        city = identity.get("location", {}).get("city", "")
-        country = identity.get("location", {}).get("country", "")
-        linkedin = identity.get("links", {}).get("linkedin", "")
-        github = identity.get("links", {}).get("github", "")
+        full_name = identity.get("full_name", "VEDANG TIWARI").upper()
+        email = identity.get("email", "vedangt027@gmail.com")
+        phone = identity.get("phone", "+91 8527157603")
+        tagline = identity.get("tagline", "Open to Relocation | Willing to work remotely")
+        links = identity.get("links", {})
+        linkedin = links.get("linkedin", "https://www.linkedin.com/in/vedang-tiwari")
+        github = links.get("github", "https://github.com/Vedang-tiwari")
+        portfolio = links.get("portfolio", "https://vedangtiwari.runs-on.dev")
 
-        # Build Skills HTML
-        skills_html = ""
-        for cat, sk_list in tailored.get("ordered_skills", {}).items():
-            skills_html += f"<p class='skill-line'><b>{cat}:</b> {', '.join(sk_list)}</p>"
+        # Build Education HTML
+        edu_html = ""
+        for edu in profile.get("education", []):
+            deg = edu.get("degree", "Bachelor of Technology in Computer Science & Engineering")
+            dates = edu.get("dates", "08/2023 – 05/2027")
+            inst = edu.get("institution", "St. Andrews Institute of Technology & Management, Gurgaon")
+            coursework = edu.get("coursework", ["Data Structures & Algorithms", "Operating Systems", "Database Management Systems", "Machine Learning", "Computer Networks"])
+            cw_str = ", ".join(coursework)
+            edu_html += f"""
+            <div class='edu-block'>
+                <div class='row-between'>
+                    <span class='bold-item'>{deg}</span>
+                    <span class='right-item'>{dates}</span>
+                </div>
+                <div class='sub-item'>{inst}</div>
+                <div class='coursework-item'><b>Relevant Coursework:</b> {cw_str}</div>
+            </div>
+            """
 
         # Build Experience HTML
         exp_html = ""
         for exp in tailored.get("experience", []):
             bullets_li = "".join([f"<li>{b}</li>" for b in exp.get("bullets", [])])
-            loc_str = f" · {exp.get('location')}" if exp.get('location') else ""
+            loc_str = exp.get("location", "Remote")
+            dates_str = exp.get("dates", "")
             exp_html += f"""
-            <div class='exp-item'>
-                <div class='exp-header'>
-                    <span class='exp-title'>{exp.get('title')}</span>
-                    <span class='exp-dates'>{exp.get('dates', '')}</span>
+            <div class='exp-block'>
+                <div class='row-between'>
+                    <span class='bold-item'>{exp.get('title')} – {exp.get('company')}</span>
+                    <span class='right-item'>{loc_str} | {dates_str}</span>
                 </div>
-                <div class='exp-sub'>{exp.get('company')}{loc_str}</div>
                 <ul class='bullets'>{bullets_li}</ul>
             </div>
             """
@@ -578,25 +679,37 @@ class ResumeTailorAgent:
         # Build Projects HTML
         proj_html = ""
         for proj in tailored.get("projects", []):
-            stack_str = f" | <i>Stack: {', '.join(proj.get('stack', []))}</i>" if proj.get("stack") else ""
+            techs = proj.get("technologies") or proj.get("stack") or []
+            tech_line = f"<div class='tech-line'><b>Technologies Used:</b> {', '.join(techs)}</div>" if techs else ""
+            bullets = proj.get("bullets") or ([proj.get("impact")] if proj.get("impact") else [])
+            bullets_li = "".join([f"<li>{b}</li>" for b in bullets])
+            link = proj.get("link", github)
             proj_html += f"""
-            <div class='proj-item'>
-                <div class='proj-header'>
-                    <span class='proj-title'>{proj.get('name')}</span>{stack_str}
+            <div class='proj-block'>
+                <div class='row-between'>
+                    <span class='bold-item'>{proj.get('name')}</span>
+                    <a class='right-link' href='{link}'>GitHub</a>
                 </div>
-                <p class='proj-desc'>• {proj.get('impact')}</p>
+                {tech_line}
+                <ul class='bullets'>{bullets_li}</ul>
             </div>
             """
 
-        # Build Education HTML
-        edu_html = ""
-        for edu in profile.get("education", []):
-            edu_html += f"""
-            <div class='edu-item'>
-                <span class='edu-degree'>{edu.get('degree')} in {edu.get('field_of_study')}</span> — 
-                <span class='edu-inst'>{edu.get('institution')}</span> ({edu.get('graduation_year')})
-            </div>
-            """
+        # Build Skills HTML
+        skills_html = ""
+        for cat, sk_list in tailored.get("ordered_skills", {}).items():
+            skills_html += f"<div class='skill-line'><b>{cat}:</b> {', '.join(sk_list)}</div>"
+
+        # Build Certifications HTML
+        certs_html = ""
+        certs = profile.get("certifications", [])
+        if certs:
+            rows = []
+            for i in range(0, len(certs), 2):
+                c1 = f"<b>{certs[i].get('name')}</b> – {certs[i].get('issuer')}"
+                c2 = f"<b>{certs[i+1].get('name')}</b> – {certs[i+1].get('issuer')}" if i + 1 < len(certs) else ""
+                rows.append(f"<tr><td style='width: 50%;'>{c1}</td><td style='width: 50%;'>{c2}</td></tr>")
+            certs_html = f"<table class='certs-table'>{''.join(rows)}</table>"
 
         html_template = f"""<!DOCTYPE html>
 <html>
@@ -606,115 +719,134 @@ class ResumeTailorAgent:
 <style>
     @page {{
         size: letter;
-        margin: 0.45in 0.5in 0.45in 0.5in;
+        margin: 0.38in 0.45in 0.38in 0.45in;
     }}
     body {{
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        color: #1a1a1a;
-        line-height: 1.35;
-        font-size: 10pt;
+        color: #111827;
+        line-height: 1.32;
+        font-size: 9pt;
         background: #ffffff;
         margin: 0;
         padding: 0;
     }}
     .header {{
         text-align: center;
-        border-bottom: 1.5px solid #2563eb;
-        padding-bottom: 8px;
-        margin-bottom: 12px;
+        border-bottom: 1.5px solid #0f172a;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
     }}
     .name {{
-        font-size: 20pt;
-        font-weight: 700;
+        font-size: 19pt;
+        font-weight: 800;
         color: #0f172a;
-        letter-spacing: -0.3px;
-        margin: 0 0 4px 0;
+        letter-spacing: 0.5px;
+        margin: 0 0 3px 0;
+        text-transform: uppercase;
     }}
     .contact-line {{
-        font-size: 9pt;
-        color: #475569;
+        font-size: 8.8pt;
+        color: #334155;
         margin: 2px 0;
     }}
     .contact-line a {{
-        color: #2563eb;
-        text-decoration: none;
+        color: #0f172a;
+        text-decoration: underline;
+    }}
+    .tagline {{
+        font-size: 8.5pt;
+        color: #475569;
+        margin: 2px 0 0 0;
     }}
     .section-title {{
-        font-size: 11pt;
+        font-size: 10pt;
         font-weight: 700;
-        color: #1e3a8a;
+        color: #0f172a;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.4px;
         border-bottom: 1px solid #cbd5e1;
         padding-bottom: 2px;
-        margin-top: 10px;
-        margin-bottom: 6px;
+        margin-top: 7px;
+        margin-bottom: 4px;
     }}
-    .summary-text {{
-        font-size: 9.5pt;
-        color: #334155;
-        margin: 4px 0 8px 0;
+    .objective-text {{
+        font-size: 8.8pt;
+        color: #1e293b;
+        margin: 3px 0 6px 0;
         text-align: justify;
+        line-height: 1.34;
     }}
-    .skill-line {{
-        margin: 2px 0;
-        font-size: 9pt;
-        color: #334155;
-    }}
-    .exp-item {{
-        margin-bottom: 8px;
-    }}
-    .exp-header {{
+    .row-between {{
         display: flex;
         justify-content: space-between;
         align-items: baseline;
     }}
-    .exp-title {{
+    .bold-item {{
         font-weight: 700;
-        font-size: 10pt;
+        font-size: 9pt;
         color: #0f172a;
     }}
-    .exp-dates {{
+    .right-item {{
         font-size: 8.5pt;
-        color: #64748b;
+        color: #475569;
         font-weight: 600;
     }}
-    .exp-sub {{
-        font-size: 9pt;
-        color: #2563eb;
+    .right-link {{
+        font-size: 8.5pt;
+        color: #0f172a;
         font-weight: 600;
-        margin-bottom: 3px;
+        text-decoration: underline;
+    }}
+    .sub-item {{
+        font-size: 8.7pt;
+        color: #334155;
+        margin-top: 1px;
+    }}
+    .coursework-item {{
+        font-size: 8.5pt;
+        color: #334155;
+        margin-top: 2px;
+    }}
+    .edu-block {{
+        margin-bottom: 5px;
+    }}
+    .exp-block {{
+        margin-bottom: 6px;
+    }}
+    .proj-block {{
+        margin-bottom: 6px;
+    }}
+    .tech-line {{
+        font-size: 8.5pt;
+        color: #334155;
+        margin-top: 1px;
+        margin-bottom: 2px;
     }}
     .bullets {{
-        margin: 2px 0 0 16px;
+        margin: 2px 0 0 14px;
         padding: 0;
-        font-size: 9pt;
-        color: #334155;
+        font-size: 8.8pt;
+        color: #1e293b;
+        line-height: 1.33;
     }}
     .bullets li {{
         margin-bottom: 2px;
     }}
-    .proj-item {{
-        margin-bottom: 6px;
+    .skill-line {{
+        font-size: 8.8pt;
+        color: #1e293b;
+        margin: 2px 0;
     }}
-    .proj-title {{
-        font-weight: 700;
-        font-size: 9.5pt;
-        color: #0f172a;
+    .certs-table {{
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 2px;
     }}
-    .proj-desc {{
-        margin: 1px 0 0 0;
-        font-size: 9pt;
-        color: #334155;
-    }}
-    .edu-item {{
-        font-size: 9pt;
-        color: #334155;
-        margin-bottom: 3px;
-    }}
-    .edu-degree {{
-        font-weight: 600;
-        color: #0f172a;
+    .certs-table td {{
+        font-size: 8.7pt;
+        color: #1e293b;
+        padding: 2px 4px 2px 0;
+        vertical-align: top;
     }}
 </style>
 </head>
@@ -722,27 +854,28 @@ class ResumeTailorAgent:
     <div class="header">
         <h1 class="name">{full_name}</h1>
         <div class="contact-line">
-            {email} · {phone} · {city}, {country}
+            Email: <a href="mailto:{email}">{email}</a> | Mob: {phone} | <a href="{github}">GitHub</a> | <a href="{linkedin}">LinkedIn</a> | <a href="{portfolio}">Portfolio</a>
         </div>
-        <div class="contact-line">
-            LinkedIn: <a href="{linkedin}">{linkedin}</a> · GitHub: <a href="{github}">{github}</a>
-        </div>
+        <div class="tagline">{tagline}</div>
     </div>
 
-    <div class="section-title">Professional Summary</div>
-    <div class="summary-text">{tailored.get('summary', '')}</div>
+    <div class="section-title">OBJECTIVE</div>
+    <div class="objective-text">{tailored.get('summary', '')}</div>
 
-    <div class="section-title">Technical Skills</div>
-    {skills_html}
+    <div class="section-title">EDUCATION</div>
+    {edu_html}
 
-    <div class="section-title">Professional Experience</div>
+    <div class="section-title">EXPERIENCE</div>
     {exp_html}
 
-    <div class="section-title">Featured Projects</div>
+    <div class="section-title">PROJECTS</div>
     {proj_html}
 
-    <div class="section-title">Education</div>
-    {edu_html}
+    <div class="section-title">SKILL SUMMARY</div>
+    {skills_html}
+
+    <div class="section-title">CERTIFICATIONS</div>
+    {certs_html}
 </body>
 </html>"""
 
