@@ -78,34 +78,5 @@ class SproutProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live Sprout (usesprout.com) scrape encountered: {e}")
 
-        if not results:
-            seed_sprout = [
-                ("Senior Software Engineer - Cloud & Microservices", "Sprout Verified Partner", "Remote", "$130k - $165k / yr (₹28 - ₹42 LPA)"),
-                ("Full Stack Python & React Developer", "Sprout Startup Network", "Remote", "$110k - $145k / yr (₹22 - ₹34 LPA)"),
-                ("DevOps & SRE Specialist", "Sprout Infrastructure Hub", "Worldwide Remote", "$120k - $155k / yr"),
-                ("AI & Machine Learning Engineer", "Sprout AI Ventures", "Remote", "$140k - $185k / yr (₹32 - ₹50 LPA)"),
-                ("Frontend Engineer (TypeScript / Next.js)", "Sprout Product Labs", "Remote", "$105k - $140k / yr (₹20 - ₹30 LPA)")
-            ]
-            for title, company, loc, sal in seed_sprout:
-                slug = title.lower().replace(' ', '-').replace('&', 'and')
-                url = f"https://www.usesprout.com/jobs/{slug}"
-                job_id = self.generate_job_id("sprout", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="sprout",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"Sprout (usesprout.com) verified listing: {title} at {company}. Compensation: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"sprout": True, "source": "usesprout.com", "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active Sprout (usesprout.com) jobs")
         return results
