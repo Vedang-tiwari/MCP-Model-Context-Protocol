@@ -207,6 +207,23 @@
 
         <button class="button button-secondary button-sm" id="btn-reset-filters">Reset</button>
         <button 
+          class="button button-primary button-sm" 
+          id="btn-refresh-unseen" 
+          title="Refresh feed with new unseen jobs from database and live sweeps"
+          style="font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px;"
+        >
+          <span id="refresh-spinner" style="display: none;">⏳</span>
+          <span id="refresh-btn-label">🔄 Refresh New Jobs</span>
+        </button>
+        <button 
+          class="button button-secondary button-sm" 
+          id="btn-sweep-and-refresh" 
+          title="Run live discovery sweep across career platforms and immediately display new unseen jobs"
+          style="white-space: nowrap;"
+        >
+          ⚡ Live Sweep & Refresh
+        </button>
+        <button 
           class="button button-secondary button-sm" 
           id="btn-purge-ghosts" 
           title="Eliminate fake dummy seed employers, expired postings, and placeholder URLs from database"
@@ -214,6 +231,22 @@
         >
           🧹 Clean Ghost Jobs
         </button>
+      </div>
+
+      <!-- Unseen Feed Tracker Bar -->
+      <div id="unseen-feed-bar" style="display: flex; justify-content: space-between; align-items: center; padding: 7px 14px; margin-bottom: 12px; background: rgba(56, 189, 248, 0.07); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-sm); font-size: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #38bdf8;"></span>
+          <span id="unseen-status-text" style="color: var(--color-text-main); font-weight: 500;">
+            Showing 100 jobs (≤ 24h fresh on first place) · Click "Refresh New Jobs" to browse unseen postings
+          </span>
+        </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <span class="badge" id="badge-seen-count" style="font-size: 11px;">0 Viewed</span>
+          <button type="button" id="btn-reset-seen" class="button button-secondary button-sm" style="padding: 2px 8px; font-size: 11px; color: var(--color-text-muted); cursor: pointer;" title="Reset your viewed session and show postings from the beginning">
+            ↺ Reset Seen
+          </button>
+        </div>
 
         <div style="display: flex; gap: 8px; margin-left: auto; align-items: center;">
           <button 
@@ -258,6 +291,19 @@
         <div style="padding: 40px; text-align: center; color: var(--color-text-subtle);">
           Loading discovered jobs from local database...
         </div>
+      </div>
+
+      <!-- Load More Unseen Jobs Container -->
+      <div id="load-more-container" style="text-align: center; margin-top: 16px; margin-bottom: 24px;">
+        <button 
+          class="button button-secondary" 
+          id="btn-load-more-unseen" 
+          style="padding: 9px 24px; font-weight: 500; font-size: 13px; display: inline-flex; align-items: center; gap: 6px;"
+          title="Append the next 100 unseen jobs without replacing the current view"
+        >
+          <span>✨ Load Next 100 Unseen Jobs</span>
+          <span class="badge" id="badge-load-more-count" style="font-size: 11px;">0 Remaining</span>
+        </button>
       </div>
     </section>
 
