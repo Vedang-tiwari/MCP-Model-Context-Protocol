@@ -91,6 +91,37 @@ class JobListing(BaseModel):
     status: ApplicationStatus = ApplicationStatus.DISCOVERED
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    @property
+    def is_fresh_24h(self) -> bool:
+        """Returns True if posted or discovered within the last 24 hours."""
+        ref = self.posted_at or self.discovered_at
+        if not ref:
+            return False
+        dt = ref if ref.tzinfo else ref.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - dt).total_seconds() <= 86400
+
+    @property
+    def age_hours(self) -> float:
+        """Returns the age in hours from posted_at or discovered_at."""
+        ref = self.posted_at or self.discovered_at
+        if not ref:
+            return 999.0
+        dt = ref if ref.tzinfo else ref.replace(tzinfo=timezone.utc)
+        return max(0.0, (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0)
+
+    @property
+    def age_display(self) -> str:
+        """Formatted human-readable relative age string."""
+        hrs = self.age_hours
+        if hrs < 1.0:
+            return f"{max(1, int(hrs * 60))}m ago"
+        elif hrs < 24.0:
+            return f"{int(hrs)}h ago"
+        elif hrs < 48.0:
+            return "Yesterday"
+        else:
+            return f"{int(hrs / 24.0)}d ago"
+
 
 class ApplicationRecord(BaseModel):
     id: Optional[int] = None
