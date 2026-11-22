@@ -37,6 +37,8 @@ data/test_jobs.db
 data/test_custom_platforms.json
 data/browser_profile/
 data/browser_profile_fallback/
+data/test_browser_unit/
+data/test_chrome_profile/
 data/artifacts/
 data/screenshots/
 *.sqlite3

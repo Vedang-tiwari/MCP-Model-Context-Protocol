@@ -173,6 +173,26 @@ def apply(job_id, auto_submit):
 
 
 @cli.command()
+@click.option("--port", default=9222, help="Remote debugging port for Chrome")
+def chrome(port):
+    """Launch official Google Chrome with remote debugging enabled for MCP."""
+    import subprocess
+    chrome_paths = [
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
+    ]
+    exe = next((p for p in chrome_paths if os.path.exists(p)), None)
+    if not exe:
+        console.print("[red]Could not locate chrome.exe in standard installation paths.[/red]")
+        return
+
+    console.print(f"[bold green]Launching Google Chrome with remote debugging on port {port}...[/bold green]")
+    console.print("[cyan]MCP Autonomous Application Agent will now open all application tabs directly in this browser![/cyan]")
+    subprocess.Popen([exe, f"--remote-debugging-port={port}", "--no-first-run"])
+
+
+@cli.command()
 def worker():
     """Start the 24/7/365 continuous autonomous background daemon."""
     daemon = AutonomousWorker()

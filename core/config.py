@@ -45,6 +45,9 @@ class Settings:
     # Browser
     PLAYWRIGHT_HEADLESS: bool = os.getenv("PLAYWRIGHT_HEADLESS", "false").lower() == "true"
     BROWSER_USER_DATA_DIR: str = os.getenv("BROWSER_USER_DATA_DIR", str(DATA_DIR / "browser_profile"))
+    CHROME_CHANNEL: str = os.getenv("CHROME_CHANNEL", "chrome")
+    CDP_URL: str = os.getenv("CDP_URL", "http://127.0.0.1:9222")
+    BROWSER_REMOTE_DEBUGGING_PORT: int = int(os.getenv("BROWSER_REMOTE_DEBUGGING_PORT", "9222"))
     USER_AGENT: str = os.getenv(
         "USER_AGENT",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
