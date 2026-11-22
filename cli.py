@@ -1,4 +1,5 @@
 """Command Line Interface (CLI) for MCP Autonomous Job Application Agent."""
+import os
 import sys
 import asyncio
 from pathlib import Path
@@ -190,6 +191,44 @@ def chrome(port):
     console.print(f"[bold green]Launching Google Chrome with remote debugging on port {port}...[/bold green]")
     console.print("[cyan]MCP Autonomous Application Agent will now open all application tabs directly in this browser![/cyan]")
     subprocess.Popen([exe, f"--remote-debugging-port={port}", "--no-first-run"])
+
+
+@cli.command(name="purge-ghosts")
+@click.option("--dry-run", is_flag=True, help="Scan and report ghost jobs without deleting them")
+@click.option("--keep-stale", is_flag=True, help="Keep stale postings; only purge dummy seed employers, bad URLs, and evergreen")
+@click.option("--soft", is_flag=True, help="Mark as EXPIRED instead of permanently deleting")
+def purge_ghosts_cmd(dry_run, keep_stale, soft):
+    """Purge fake, seed, evergreen, and expired ghost jobs from database."""
+    db = DatabaseManager()
+    console.print(Panel.fit(
+        "[bold cyan]🧹 Scanning Database for Ghost & Stale Requisitions...[/bold cyan]",
+        border_style="cyan"
+    ))
+
+    result = db.purge_ghost_jobs(
+        hard_delete=not soft,
+        dry_run=dry_run,
+        purge_stale=not keep_stale
+    )
+
+    bk = result["breakdown"]
+    table = Table(title="Ghost Job Purge Summary", show_header=True, header_style="bold magenta")
+    table.add_column("Category", style="cyan")
+    table.add_column("Count", style="bold yellow", justify="right")
+    table.add_row("Total Requisitions Scanned", str(result["total_scanned"]))
+    table.add_row("Hardcoded Dummy/Seed Employers", str(bk["dummy_companies"]))
+    table.add_row("Malformed / Placeholder URLs", str(bk["placeholder_urls"]))
+    table.add_row("Evergreen / Pipeline Requisitions", str(bk["evergreen_or_pipeline"]))
+    table.add_row("Stale Postings (>14d aggregators / >30d ATS)", str(bk["stale_postings"]))
+    table.add_row("Total Ghost Jobs Detected", str(bk["total_ghosts"]))
+    action_text = "Would Purge (Dry Run)" if dry_run else ("Marked EXPIRED" if soft else "Permanently Purged")
+    table.add_row(f"Action Taken ({action_text})", str(result["purged_count"]))
+
+    console.print(table)
+    if dry_run:
+        console.print("[yellow]Dry run completed. Run without --dry-run to execute cleanup.[/yellow]")
+    else:
+        console.print(f"[bold green][+] Successfully cleaned up {result['purged_count']} ghost jobs from the database![/bold green]")
 
 
 @cli.command()
