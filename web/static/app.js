@@ -784,13 +784,17 @@ function closeTailorModal() {
 // Live Discovery Scout
 // -----------------------------------------------------------------------------
 function getPlatformDisplayName(key) {
-  if (!key) return 'All Platforms';
+  if (!key || typeof key !== 'string' || key.toLowerCase() === 'all' || key.toLowerCase() === 'all platforms') {
+    return 'All Platforms';
+  }
   if (DOM.filterPlatform) {
-    const opt = DOM.filterPlatform.querySelector(`option[value="${key}"]`);
-    if (opt) {
-      const txt = opt.textContent.split('(')[0].trim();
-      return txt.length > 0 ? txt : opt.textContent.trim();
-    }
+    try {
+      const opt = DOM.filterPlatform.querySelector(`option[value="${key}"]`);
+      if (opt) {
+        const txt = opt.textContent.split('(')[0].trim();
+        return txt.length > 0 ? txt : opt.textContent.trim();
+      }
+    } catch (_) {}
   }
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
@@ -820,21 +824,30 @@ function updateScoutButtonLabel() {
 }
 
 async function triggerLiveScout(explicitPlatform = null) {
-  DOM.btnQuickScout.disabled = true;
-  DOM.btnRunScoutFull.disabled = true;
+  if (DOM.btnQuickScout) DOM.btnQuickScout.disabled = true;
+  if (DOM.btnRunScoutFull) DOM.btnRunScoutFull.disabled = true;
 
   // Resolve targeted platform: explicit parameter, state filter, or scout view dropdown
-  let selectedPlatform = explicitPlatform;
+  let selectedPlatform = (typeof explicitPlatform === 'string' && explicitPlatform.trim()) ? explicitPlatform.trim() : null;
   if (!selectedPlatform) {
-    selectedPlatform = state.filters.platform || (DOM.scoutTargetPlatform ? DOM.scoutTargetPlatform.value : '') || null;
+    const filterVal = (DOM.filterPlatform && DOM.filterPlatform.value) ? DOM.filterPlatform.value.trim() : '';
+    const scoutVal = (DOM.scoutTargetPlatform && DOM.scoutTargetPlatform.value) ? DOM.scoutTargetPlatform.value.trim() : '';
+    const stateVal = (typeof state.filters.platform === 'string') ? state.filters.platform.trim() : '';
+    selectedPlatform = filterVal || scoutVal || stateVal || null;
   }
-  if (selectedPlatform === '') selectedPlatform = null;
+  if (selectedPlatform && (selectedPlatform.toLowerCase() === 'all' || selectedPlatform.toLowerCase() === 'all platforms')) {
+    selectedPlatform = null;
+  }
 
   const platformName = selectedPlatform ? getPlatformDisplayName(selectedPlatform) : 'All Platforms';
 
-  DOM.btnQuickScout.querySelector('span:last-child').textContent = selectedPlatform ? `Scouting ${platformName}...` : 'Scouting...';
+  if (DOM.btnQuickScout) {
+    const lbl = DOM.btnQuickScout.querySelector('span:last-child');
+    if (lbl) lbl.textContent = selectedPlatform ? `Scouting ${platformName}...` : 'Scouting...';
+  }
   if (DOM.btnRunScoutFull) {
-    DOM.btnRunScoutFull.querySelector('span').textContent = selectedPlatform ? `Scouting ${platformName}...` : 'Scouting...';
+    const lbl = DOM.btnRunScoutFull.querySelector('span');
+    if (lbl) lbl.textContent = selectedPlatform ? `Scouting ${platformName}...` : 'Scouting...';
   }
 
   const currentRoles = (state.preferences && state.preferences.target_roles) ? state.preferences.target_roles : [];
@@ -856,36 +869,47 @@ async function triggerLiveScout(explicitPlatform = null) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const data = await res.json();
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (_) {
+      data = {};
+    }
 
     if (res.ok && data.success) {
-      const s = data.summary;
-      appendScoutLog(`[COMPLETE] Discovered ${s.new_unique_jobs} new unique jobs from ${s.total_fetched} listings parsed on ${platformName}.`);
-      appendScoutLog(`[MATCHES] ${s.qualified_matches} qualified listings matched profile threshold (≥${s.threshold}%).`);
+      const s = data.summary || {};
+      const newJobs = s.new_unique_jobs ?? 0;
+      const totalFetched = s.total_fetched ?? 0;
+      const qualified = s.qualified_matches ?? 0;
+      const thresh = s.threshold ?? 70;
 
-      showToast(`🎉 Sweep complete for ${platformName}: ${s.new_unique_jobs} new jobs discovered! Displaying all recent related jobs.`, 'success');
+      appendScoutLog(`[COMPLETE] Discovered ${newJobs} new unique jobs from ${totalFetched} listings parsed on ${platformName}.`);
+      appendScoutLog(`[MATCHES] ${qualified} qualified listings matched profile threshold (≥${thresh}%).`);
+
+      showToast(`🎉 Sweep complete for ${platformName}: ${newJobs} new jobs discovered! Displaying all recent related jobs.`, 'success');
 
       // If a specific platform was swept, lock filter to that platform and display results
       if (selectedPlatform) {
         state.filters.platform = selectedPlatform;
         if (DOM.filterPlatform) DOM.filterPlatform.value = selectedPlatform;
         if (DOM.scoutTargetPlatform) DOM.scoutTargetPlatform.value = selectedPlatform;
-        updateScoutButtonLabel();
-        switchView('jobs');
       }
+      updateScoutButtonLabel();
+      switchView('jobs');
 
       await fetchStats();
       await fetchJobs();
     } else {
-      appendScoutLog(`[ERROR] Discovery sweep encountered issues on ${platformName}.`);
-      showToast('Scout sweep failed', 'error');
+      const errMsg = (data && data.error) ? data.error : 'Discovery sweep encountered issues';
+      appendScoutLog(`[ERROR] Discovery sweep failed on ${platformName}: ${errMsg}`);
+      showToast(`Scout sweep failed: ${errMsg}`, 'error');
     }
   } catch (err) {
     appendScoutLog(`[ERROR] Connection failed: ${err.message}`);
-    showToast('Failed to trigger scout', 'error');
+    showToast(`Failed to trigger scout: ${err.message}`, 'error');
   } finally {
-    DOM.btnQuickScout.disabled = false;
-    DOM.btnRunScoutFull.disabled = false;
+    if (DOM.btnQuickScout) DOM.btnQuickScout.disabled = false;
+    if (DOM.btnRunScoutFull) DOM.btnRunScoutFull.disabled = false;
     updateScoutButtonLabel();
   }
 }
@@ -1473,8 +1497,12 @@ function initEventListeners() {
   });
 
   // Scout Triggers
-  DOM.btnQuickScout.addEventListener('click', triggerLiveScout);
-  DOM.btnRunScoutFull.addEventListener('click', triggerLiveScout);
+  if (DOM.btnQuickScout) {
+    DOM.btnQuickScout.addEventListener('click', () => triggerLiveScout());
+  }
+  if (DOM.btnRunScoutFull) {
+    DOM.btnRunScoutFull.addEventListener('click', () => triggerLiveScout());
+  }
 
   // Target Role Keyword Events
   if (DOM.btnAddScoutRole && DOM.inputNewScoutRole) {
