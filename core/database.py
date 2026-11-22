@@ -223,9 +223,11 @@ class DatabaseManager:
         status: Optional[ApplicationStatus] = None,
         platform: Optional[str] = None,
         limit: int = 50,
+        offset: int = 0,
         min_match_score: Optional[int] = None,
         fresh_only: bool = False,
-        prioritize_fresh: bool = True
+        prioritize_fresh: bool = True,
+        exclude_ids: Optional[List[str]] = None
     ) -> List[JobListing]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -260,6 +262,12 @@ class DatabaseManager:
             if fresh_only:
                 conditions.append("COALESCE(posted_at, discovered_at) >= ?")
                 params.append(cutoff_24h_iso)
+            if exclude_ids:
+                # Exclude already-seen jobs so only unseen postings are retrieved
+                sql_exclude = exclude_ids[:900]
+                placeholders = ",".join("?" for _ in sql_exclude)
+                conditions.append(f"id NOT IN ({placeholders})")
+                params.extend(sql_exclude)
 
             where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
@@ -273,16 +281,74 @@ class DatabaseManager:
                     _is_fresh_tier DESC,
                     match_score DESC,
                     COALESCE(posted_at, discovered_at) DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
                 """
-                exec_params = [cutoff_24h_iso] + params + [limit]
+                exec_params = [cutoff_24h_iso] + params + [limit, offset]
             else:
-                query = f"SELECT * FROM jobs {where_clause} ORDER BY discovered_at DESC LIMIT ?"
-                exec_params = params + [limit]
+                query = f"SELECT * FROM jobs {where_clause} ORDER BY discovered_at DESC LIMIT ? OFFSET ?"
+                exec_params = params + [limit, offset]
 
             cursor.execute(query, exec_params)
             rows = cursor.fetchall()
-            return [self._row_to_job(row) for row in rows]
+            jobs = [self._row_to_job(row) for row in rows]
+            # Extra safety filter if exclude_ids exceeded 900
+            if exclude_ids and len(exclude_ids) > 900:
+                exclude_set = set(exclude_ids)
+                jobs = [j for j in jobs if j.id not in exclude_set]
+            return jobs
+
+    def count_jobs(
+        self,
+        status: Optional[ApplicationStatus] = None,
+        platform: Optional[str] = None,
+        min_match_score: Optional[int] = None,
+        fresh_only: bool = False,
+        exclude_ids: Optional[List[str]] = None
+    ) -> int:
+        """Count jobs matching criteria, optionally excluding already-seen job IDs."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            conditions = []
+            params = []
+            cutoff_24h_iso = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+
+            if status:
+                conditions.append("status = ?")
+                params.append(status.value)
+            if platform:
+                clean_p = platform.lower().strip()
+                if clean_p in ["greenhouse", "lever", "ashby"]:
+                    conditions.append("(LOWER(platform) = ? OR (LOWER(platform) = 'ats_direct' AND metadata LIKE ?))")
+                    params.extend([clean_p, f"%{clean_p}%"])
+                elif clean_p in ["ats_direct", "direct_ats", "ats"]:
+                    conditions.append("LOWER(platform) IN ('ats_direct', 'greenhouse', 'lever', 'ashby')")
+                elif clean_p in ["ai-job.net", "aijobnet"]:
+                    conditions.append("LOWER(platform) IN ('ai-job.net', 'aijobnet')")
+                elif clean_p in ["beep", "beep_ai"]:
+                    conditions.append("LOWER(platform) IN ('beep', 'beep_ai')")
+                elif clean_p in ["mljobsinfo", "ml-jobs.info"]:
+                    conditions.append("LOWER(platform) IN ('mljobsinfo', 'ml-jobs.info')")
+                elif clean_p in ["aijobsai", "aijobs.ai"]:
+                    conditions.append("LOWER(platform) IN ('aijobsai', 'aijobs.ai')")
+                else:
+                    conditions.append("LOWER(platform) = ?")
+                    params.append(clean_p)
+            if min_match_score is not None:
+                conditions.append("match_score >= ?")
+                params.append(min_match_score)
+            if fresh_only:
+                conditions.append("COALESCE(posted_at, discovered_at) >= ?")
+                params.append(cutoff_24h_iso)
+            if exclude_ids:
+                sql_exclude = exclude_ids[:900]
+                placeholders = ",".join("?" for _ in sql_exclude)
+                conditions.append(f"id NOT IN ({placeholders})")
+                params.extend(sql_exclude)
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            query = f"SELECT COUNT(*) as count FROM jobs {where_clause}"
+            cursor.execute(query, params)
+            return cursor.fetchone()["count"]
 
     def record_application(self, record: ApplicationRecord) -> int:
         with self._get_connection() as conn:
