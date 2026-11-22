@@ -9,6 +9,8 @@ import sys
 import os
 import asyncio
 import unittest
+from unittest.mock import AsyncMock
+from datetime import datetime, timezone, timedelta
 
 if sys.platform == "win32":
     try:
@@ -34,37 +36,75 @@ class TestTargetedPlatformScout(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_targeted_discovery_sprout(self):
-        summary = asyncio.run(self.aggregator.run_discovery_cycle(
-            roles=["Software Engineer", "AI Engineer", "Full Stack Engineer"],
+        # Mock 1 realistic live opening on sprout to verify targeted pipeline
+        sprout_prov = self.aggregator.providers.get("sprout")
+        now = datetime.now(timezone.utc)
+        mock_job = JobListing(
+            id="sprout_live_1",
             platform="sprout",
-            max_age_hours=24
-        ))
-        self.assertEqual(summary["target_platform"], "sprout")
-        # Only sprout provider should have executed
-        self.assertIn("sprout", summary["executed_providers"])
-        self.assertNotIn("linkedin", summary["executed_providers"])
-        self.assertNotIn("indeed", summary["executed_providers"])
-        self.assertGreaterEqual(summary["total_fetched"], 1)
+            title="Senior AI Engineer",
+            company="Anthropic Tech Partner",
+            location="Remote",
+            url="https://usesprout.com/jobs/99881",
+            salary="$140,000 - $180,000 / yr",
+            posted_at=now - timedelta(hours=2)
+        )
+        orig_fetch = sprout_prov.fetch_recent_jobs
+        sprout_prov.fetch_recent_jobs = AsyncMock(return_value=[mock_job])
 
-        # Check that sprout jobs exist in DB
-        sprout_jobs = self.db.list_jobs(platform="sprout", limit=20)
-        self.assertGreaterEqual(len(sprout_jobs), 1)
-        for job in sprout_jobs:
-            self.assertEqual(job.platform, "sprout")
+        try:
+            summary = asyncio.run(self.aggregator.run_discovery_cycle(
+                roles=["Software Engineer", "AI Engineer", "Full Stack Engineer"],
+                platform="sprout",
+                max_age_hours=24
+            ))
+            self.assertEqual(summary["target_platform"], "sprout")
+            # Only sprout provider should have executed
+            self.assertIn("sprout", summary["executed_providers"])
+            self.assertNotIn("linkedin", summary["executed_providers"])
+            self.assertNotIn("indeed", summary["executed_providers"])
+            self.assertGreaterEqual(summary["total_fetched"], 1)
+
+            # Check that sprout jobs exist in DB
+            sprout_jobs = self.db.list_jobs(platform="sprout", limit=20)
+            self.assertGreaterEqual(len(sprout_jobs), 1)
+            for job in sprout_jobs:
+                self.assertEqual(job.platform, "sprout")
+        finally:
+            sprout_prov.fetch_recent_jobs = orig_fetch
 
     def test_targeted_discovery_hirist(self):
-        summary = asyncio.run(self.aggregator.run_discovery_cycle(
-            roles=["Software Engineer", "AI Engineer"],
+        # Mock 1 realistic live opening on hirist to verify targeted pipeline
+        hirist_prov = self.aggregator.providers.get("hirist")
+        now = datetime.now(timezone.utc)
+        mock_job = JobListing(
+            id="hirist_live_1",
             platform="hirist",
-            max_age_hours=24
-        ))
-        self.assertEqual(summary["target_platform"], "hirist")
-        self.assertIn("hirist", summary["executed_providers"])
-        self.assertNotIn("linkedin", summary["executed_providers"])
-        self.assertGreaterEqual(summary["total_fetched"], 1)
+            title="Senior Software Engineer",
+            company="Razorpay Ecosystem",
+            location="Remote",
+            url="https://www.hirist.tech/j/99882",
+            salary="25 - 40 LPA",
+            posted_at=now - timedelta(hours=3)
+        )
+        orig_fetch = hirist_prov.fetch_recent_jobs
+        hirist_prov.fetch_recent_jobs = AsyncMock(return_value=[mock_job])
 
-        hirist_jobs = self.db.list_jobs(platform="hirist", limit=20)
-        self.assertGreaterEqual(len(hirist_jobs), 1)
+        try:
+            summary = asyncio.run(self.aggregator.run_discovery_cycle(
+                roles=["Software Engineer", "AI Engineer"],
+                platform="hirist",
+                max_age_hours=24
+            ))
+            self.assertEqual(summary["target_platform"], "hirist")
+            self.assertIn("hirist", summary["executed_providers"])
+            self.assertNotIn("linkedin", summary["executed_providers"])
+            self.assertGreaterEqual(summary["total_fetched"], 1)
+
+            hirist_jobs = self.db.list_jobs(platform="hirist", limit=20)
+            self.assertGreaterEqual(len(hirist_jobs), 1)
+        finally:
+            hirist_prov.fetch_recent_jobs = orig_fetch
 
     def test_targeted_discovery_ats_direct(self):
         # Override with 1 company to keep test blazing fast
