@@ -104,6 +104,15 @@ class ATSDirectProvider(BaseJobProvider):
             job_id = self.generate_job_id("greenhouse", company, title, job_url)
             salary = normalize_salary(fallback_text=f"{title} {loc}", default_role_fallback=title)
 
+            # Parse real Greenhouse publication/update timestamp
+            updated_str = item.get("updated_at")
+            posted_at = datetime.now(timezone.utc)
+            if updated_str:
+                try:
+                    posted_at = datetime.fromisoformat(updated_str.replace("Z", "+00:00"))
+                except Exception:
+                    posted_at = datetime.now(timezone.utc)
+
             matched.append(JobListing(
                 id=job_id,
                 platform="ats_direct",
@@ -115,7 +124,7 @@ class ATSDirectProvider(BaseJobProvider):
                 salary=salary,
                 is_easy_apply=False,
                 description=f"Direct ATS job listing for {title} at {company.capitalize()}. Compensation: {salary}",
-                posted_at=datetime.now(timezone.utc),
+                posted_at=posted_at,
                 discovered_at=datetime.now(timezone.utc),
                 status=ApplicationStatus.DISCOVERED,
                 metadata={"ats_type": "greenhouse", "board_token": company, "salary": salary}
@@ -155,6 +164,15 @@ class ATSDirectProvider(BaseJobProvider):
             salary = normalize_salary(fallback_text=f"{title} {plain_desc[:500]}", default_role_fallback=title)
             job_id = self.generate_job_id("lever", company, title, job_url)
 
+            # Parse real Lever creation timestamp (ms epoch)
+            created_at_ms = item.get("createdAt")
+            posted_at = datetime.now(timezone.utc)
+            if created_at_ms and isinstance(created_at_ms, (int, float)):
+                try:
+                    posted_at = datetime.fromtimestamp(created_at_ms / 1000.0, tz=timezone.utc)
+                except Exception:
+                    posted_at = datetime.now(timezone.utc)
+
             matched.append(JobListing(
                 id=job_id,
                 platform="ats_direct",
@@ -166,7 +184,7 @@ class ATSDirectProvider(BaseJobProvider):
                 salary=salary,
                 is_easy_apply=False,
                 description=plain_desc[:800],
-                posted_at=datetime.now(timezone.utc),
+                posted_at=posted_at,
                 discovered_at=datetime.now(timezone.utc),
                 status=ApplicationStatus.DISCOVERED,
                 metadata={"ats_type": "lever", "board_token": company, "salary": salary}
