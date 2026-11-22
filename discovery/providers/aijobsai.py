@@ -75,33 +75,5 @@ class AIJobsAIProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live AIJobs.ai scrape encountered: {e}")
 
-        if not results:
-            seed_aijobsai = [
-                ("Lead Generative AI Solutions Architect", "Frontier AI Systems", "Remote", "$150k - $220k / yr"),
-                ("Senior AI Agent Engineer (LangChain / Autogen / MCP)", "Agentic Workforce AI", "Remote / India", "₹32 - ₹50 LPA ($125k - $180k / yr)"),
-                ("LLM Evaluation & Alignment Specialist", "SafeAI Labs", "Remote", "$130k - $185k / yr"),
-                ("Full Stack AI Product Developer (FastAPI / Next.js)", "PromptMatrix", "Remote / Bengaluru", "₹24 - ₹40 LPA"),
-                ("Director of Applied Machine Learning", "NeuralForge Global", "Worldwide Remote", "$180k - $260k / yr")
-            ]
-            for title, company, loc, sal in seed_aijobsai:
-                url = f"https://aijobs.ai/jobs/{title.lower().replace(' ', '-')}"
-                job_id = self.generate_job_id("aijobsai", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="aijobsai",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"AIJobs.ai curated opportunity: {title} at {company}. Compensation: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"aijobsai": True, "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active AIJobs.ai jobs")
         return results
