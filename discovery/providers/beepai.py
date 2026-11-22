@@ -75,33 +75,5 @@ class BeepAIProvider(BaseJobProvider):
         except Exception as e:
             logger.debug(f"Live Beep AI fetch encountered: {e}")
 
-        if not results:
-            seed_beep = [
-                ("Staff Prompt Engineer & Cognitive Architect", "Beep Intelligence Lab", "Remote", "$130k - $185k / yr (₹30 - ₹48 LPA)"),
-                ("Autonomous AI Agent Engineer (LangGraph / MCP)", "NovaFlow AI", "Bengaluru / Remote", "₹26 - ₹45 LPA"),
-                ("Generative AI Product Engineer", "Beep Enterprise Partner", "Remote", "$120k - $170k / yr"),
-                ("Applied ML Engineer - NLP & Conversational AI", "DeepSynthese", "Hyderabad / Remote", "₹22 - ₹38 LPA"),
-                ("Full Stack AI Solutions Architect", "HyperCognition AI", "Remote", "$140k - $200k / yr")
-            ]
-            for title, company, loc, sal in seed_beep:
-                url = f"https://joinbeep.com/careers/{title.lower().replace(' ', '-')}"
-                job_id = self.generate_job_id("beep", company, title, url)
-                results.append(JobListing(
-                    id=job_id,
-                    platform="beep",
-                    title=title,
-                    company=company,
-                    location=loc,
-                    url=url,
-                    apply_url=url,
-                    salary=sal,
-                    is_easy_apply=True,
-                    description=f"Beep: AI Career Platform certified role: {title} at {company}. Package: {sal}.",
-                    posted_at=datetime.now(timezone.utc),
-                    discovered_at=datetime.now(timezone.utc),
-                    status=ApplicationStatus.DISCOVERED,
-                    metadata={"beep_ai": True, "salary": sal}
-                ))
-
         logger.info(f"[{self.name}] Discovered {len(results)} active Beep AI jobs")
         return results
