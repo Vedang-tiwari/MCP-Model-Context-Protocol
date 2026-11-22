@@ -560,32 +560,56 @@ async def api_toggle_platform(request: Request) -> JSONResponse:
 async def api_trigger_scout(request: Request) -> JSONResponse:
     """Trigger a live multi-platform or platform-targeted discovery sweep."""
     try:
-        body = await request.json()
-    except Exception:
-        body = {}
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
 
-    roles = body.get("roles")
-    if not roles:
-        profile_mgr.reload()
-        roles = profile_mgr.preferences.target_roles
+        roles = body.get("roles")
+        if not roles:
+            profile_mgr.reload()
+            roles = profile_mgr.preferences.target_roles
 
-    locations = body.get("locations")
-    max_age_hours = body.get("max_age_hours", 24)
-    platform = body.get("platform")
-    platforms = body.get("platforms")
+        locations = body.get("locations")
+        max_age_hours = body.get("max_age_hours", 24)
 
-    summary = await aggregator.run_discovery_cycle(
-        roles=roles,
-        locations=locations,
-        max_age_hours=max_age_hours,
-        platform=platform,
-        platforms=platforms
-    )
-    return JSONResponse({
-        "success": True,
-        "summary": summary,
-        "selected_platform": platform
-    })
+        # Sanitize platform
+        platform = body.get("platform")
+        if not isinstance(platform, str) or not platform.strip() or platform.strip().lower() in ["all", "none", "null", "[object pointerevent]", "[object object]"]:
+            platform = None
+        else:
+            platform = platform.strip()
+
+        # Sanitize platforms list
+        platforms = body.get("platforms")
+        if platforms and isinstance(platforms, list):
+            platforms = [
+                str(p).strip() for p in platforms
+                if str(p).strip() and str(p).strip().lower() not in ["all", "none", "null"]
+            ]
+            if not platforms:
+                platforms = None
+        else:
+            platforms = None
+
+        summary = await aggregator.run_discovery_cycle(
+            roles=roles,
+            locations=locations,
+            max_age_hours=max_age_hours,
+            platform=platform,
+            platforms=platforms
+        )
+        return JSONResponse({
+            "success": True,
+            "summary": summary,
+            "selected_platform": platform
+        })
+    except Exception as e:
+        logger.error(f"Error during scout discovery sweep: {e}", exc_info=True)
+        return JSONResponse({
+            "success": False,
+            "error": str(e)
+        }, status_code=500)
 
 
 async def api_get_target_roles(request: Request) -> JSONResponse:
