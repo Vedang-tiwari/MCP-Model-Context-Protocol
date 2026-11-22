@@ -7,6 +7,7 @@ from core.models import JobListing, ApplicationStatus
 from core.database import DatabaseManager
 from core.profile_manager import ProfileManager
 from core.role_matcher import matches_target_roles
+from core.ghost_job_detector import GhostJobDetector
 from .providers import (
     LinkedInProvider,
     IndeedProvider,
@@ -26,11 +27,13 @@ class JobAggregator:
         self,
         db: DatabaseManager,
         profile_mgr: ProfileManager,
-        registry: Optional[PlatformRegistry] = None
+        registry: Optional[PlatformRegistry] = None,
+        ghost_detector: Optional[GhostJobDetector] = None
     ):
         self.db = db
         self.profile_mgr = profile_mgr
         self.registry = registry or PlatformRegistry()
+        self.ghost_detector = ghost_detector or GhostJobDetector()
 
     @property
     def providers(self) -> Dict[str, Any]:
@@ -113,6 +116,7 @@ class JobAggregator:
 
         newly_inserted = 0
         qualified_jobs = 0
+        ghost_filtered_count = 0
 
         # Broad tech / engineering keyword filter used when targeting a platform
         related_tech_keywords = [
@@ -122,6 +126,13 @@ class JobAggregator:
         ]
 
         for job in all_discovered:
+            # Step 1: Anti-Ghosting & Requisition Freshness Check
+            ghost_verdict = self.ghost_detector.evaluate(job, max_age_hours=active_age)
+            if ghost_verdict.is_ghost:
+                ghost_filtered_count += 1
+                logger.info(f"[Ghost Filter] Discarded ghost/stale job '{job.title}' at '{job.company}': {', '.join(ghost_verdict.reasons)}")
+                continue
+
             tags = job.metadata.get("tags") if isinstance(job.metadata, dict) else None
 
             # Role filtering: if active_roles configured, check strict matching.
@@ -168,11 +179,12 @@ class JobAggregator:
             "total_fetched": len(all_discovered),
             "new_unique_jobs": newly_inserted,
             "qualified_matches": qualified_jobs,
+            "ghost_jobs_filtered": ghost_filtered_count,
             "threshold": prefs.match_threshold_percent,
             "auto_apply_enabled": prefs.auto_apply
         }
 
-        logger.info(f"Discovery sweep completed: {newly_inserted} new unique jobs found, {qualified_jobs} qualified across {selected_providers}.")
+        logger.info(f"Discovery sweep completed: {newly_inserted} new unique jobs found, {qualified_jobs} qualified, {ghost_filtered_count} ghost jobs eliminated across {selected_providers}.")
         return summary
 
     async def _safely_fetch(self, provider, roles, locs, max_age):
