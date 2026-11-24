@@ -26,11 +26,12 @@ if env_path.exists():
 
 
 class Settings:
-    # Open-Source LLM Settings (Defaults to high-speed Llama 3.3 / Qwen 2.5 via Groq or Ollama)
-    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "groq")
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+    # LLM Settings (Defaults to Google Gemini API: gemini-2.0-flash or gemini-1.5-flash)
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "gemini-2.0-flash")
 
     # API Keys & Custom Base URLs
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", os.getenv("GOOGLE_API_KEY", ""))
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434/v1")
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")

@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 
 class LLMClient:
     """
-    Open-Source friendly LLM interface with native tool calling and function calling support.
+    Open-Source and Cloud LLM interface with native tool calling and function calling support.
     
     Recommended Baseline Models:
+    - Google Gemini: 'gemini-2.0-flash' or 'gemini-1.5-flash' (High speed, 1M+ context window, free tier available)
     - Groq: 'llama-3.3-70b-versatile' or 'qwen-2.5-32b' (Ultra-fast 300+ tok/s, native tool calling)
     - Ollama: 'qwen2.5:14b' or 'llama3.1:8b' (100% free, runs locally, zero API keys required)
     - DeepSeek: 'deepseek-chat' (State of the art reasoning & tool calling)
@@ -33,7 +34,12 @@ class LLMClient:
         self._configure_endpoints(api_key, base_url)
 
     def _configure_endpoints(self, api_key: Optional[str], base_url: Optional[str]):
-        if self.provider == "ollama":
+        if self.provider in ("gemini", "google"):
+            self.base_url = (base_url or "https://generativelanguage.googleapis.com/v1beta/openai").rstrip("/")
+            self.api_key = api_key or settings.GEMINI_API_KEY
+            if not self.model or self.model in ("gpt-4o-mini", "llama-3.3-70b-versatile"):
+                self.model = "gemini-2.0-flash"
+        elif self.provider == "ollama":
             self.base_url = base_url or settings.OLLAMA_BASE_URL.rstrip("/")
             self.api_key = "ollama"  # Ollama doesn't require an API key
             if not self.model or self.model == "gpt-4o-mini":
@@ -41,7 +47,7 @@ class LLMClient:
         elif self.provider == "groq":
             self.base_url = base_url or "https://api.groq.com/openai/v1"
             self.api_key = api_key or settings.GROQ_API_KEY
-            if not self.model or self.model == "gpt-4o-mini":
+            if not self.model or self.model in ("gpt-4o-mini", "gemini-2.0-flash"):
                 self.model = "llama-3.3-70b-versatile"
         elif self.provider == "deepseek":
             self.base_url = base_url or "https://api.deepseek.com/v1"
