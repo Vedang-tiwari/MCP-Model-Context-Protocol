@@ -74,9 +74,35 @@ class TestMCPComponents(unittest.TestCase):
 
     def test_llm_client_initialization(self):
         from core.llm_client import LLMClient
-        client = LLMClient(provider="ollama", model="qwen2.5:14b")
-        self.assertEqual(client.provider, "ollama")
-        self.assertEqual(client.model, "qwen2.5:14b")
+        # Default initialization (Google Gemini)
+        default_client = LLMClient()
+        self.assertEqual(default_client.provider, "gemini")
+        self.assertEqual(default_client.model, "gemini-2.0-flash")
+        self.assertEqual(default_client.base_url, "https://generativelanguage.googleapis.com/v1beta/openai")
+
+        # Explicit gemini provider
+        gemini_client = LLMClient(provider="gemini", model="gemini-1.5-flash", api_key="test_gemini_key")
+        self.assertEqual(gemini_client.provider, "gemini")
+        self.assertEqual(gemini_client.model, "gemini-1.5-flash")
+        self.assertEqual(gemini_client.api_key, "test_gemini_key")
+        self.assertEqual(gemini_client.base_url, "https://generativelanguage.googleapis.com/v1beta/openai")
+
+        # Google alias
+        google_client = LLMClient(provider="google")
+        self.assertEqual(google_client.provider, "google")
+        self.assertEqual(google_client.model, "gemini-2.0-flash")
+        self.assertEqual(google_client.base_url, "https://generativelanguage.googleapis.com/v1beta/openai")
+
+        # Ollama provider
+        ollama_client = LLMClient(provider="ollama", model="qwen2.5:14b")
+        self.assertEqual(ollama_client.provider, "ollama")
+        self.assertEqual(ollama_client.model, "qwen2.5:14b")
+
+        # Groq provider
+        groq_client = LLMClient(provider="groq", api_key="test_groq_key")
+        self.assertEqual(groq_client.provider, "groq")
+        self.assertEqual(groq_client.model, "llama-3.3-70b-versatile")
+        self.assertEqual(groq_client.base_url, "https://api.groq.com/openai/v1")
 
     def test_orchestrator_tool_definitions(self):
         from core.orchestrator import TOOL_DEFINITIONS
