@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.10+" />
   <img src="https://img.shields.io/badge/Model%20Context%20Protocol-FastMCP-8A2BE2?style=for-the-badge" alt="MCP" />
   <img src="https://img.shields.io/badge/Playwright-Stealth-2EAD33?style=for-the-badge&logo=playwright&logoColor=white" alt="Playwright Stealth" />
-  <img src="https://img.shields.io/badge/LLM-Groq%20%7C%20Ollama%20%7C%20DeepSeek-FF6F00?style=for-the-badge" alt="Open Weights LLMs" />
+  <img src="https://img.shields.io/badge/LLM-Gemini%20%7C%20Ollama%20%7C%20Groq-4285F4?style=for-the-badge&logo=google&logoColor=white" alt="Gemini and LLMs" />
   <img src="https://img.shields.io/badge/Tests-72%20Passing-success?style=for-the-badge" alt="Tests 72 Passing" />
   <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" alt="License MIT" />
 </p>
@@ -170,7 +170,9 @@ The system natively supports structured tool-calling with zero vendor lock-in:
 
 | Provider | Model | Type | Speed | Cost | Best For |
 |---|---|---|---|---|---|
-| **Groq (Recommended)** | `llama-3.3-70b-versatile` | Cloud | 300+ tok/s | Free Tier | Lightning-fast screening Q&A & live tailoring |
+| **Google Gemini (Recommended)** | `gemini-2.0-flash` | Cloud | Ultra-Fast | Free Tier Available | 1M+ context window, native tool calling, resume tailoring |
+| **Google Gemini** | `gemini-1.5-flash` | Cloud | Fast | Free Tier Available | Reliable fallback, high-accuracy screening question synthesis |
+| **Groq** | `llama-3.3-70b-versatile` | Cloud | 300+ tok/s | Free Tier | Lightning-fast screening Q&A & live tailoring |
 | **Groq** | `qwen-2.5-32b` | Cloud | 280+ tok/s | Free Tier | High-precision ATS form field mapping |
 | **Ollama** | `qwen2.5:14b` or `qwen2.5:7b` | Local | Hardware dependent | 100% Free / Offline | Total privacy, zero internet dependency |
 | **Ollama** | `llama3.3:70b` | Local | Hardware dependent | 100% Free / Offline | High-capability local reasoning |
@@ -217,12 +219,17 @@ cp .env.example .env
 Edit `.env` to select your preferred LLM provider:
 
 ```ini
-# Option A: Fast Cloud (Groq Free Tier)
-LLM_PROVIDER=groq
-LLM_MODEL=llama-3.3-70b-versatile
-GROQ_API_KEY=your_groq_api_key_here
+# Option A: Recommended Cloud (Google Gemini API - Generous Free Tier)
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-2.0-flash
+GEMINI_API_KEY=your_gemini_api_key_here
 
-# Option B: 100% Local & Free (Ollama)
+# Option B: Ultra-Fast Cloud Alternative (Groq Free Tier)
+# LLM_PROVIDER=groq
+# LLM_MODEL=llama-3.3-70b-versatile
+# GROQ_API_KEY=your_groq_api_key_here
+
+# Option C: 100% Local & Free (Ollama)
 # LLM_PROVIDER=ollama
 # LLM_MODEL=qwen2.5:14b
 # OLLAMA_BASE_URL=http://localhost:11434/v1
