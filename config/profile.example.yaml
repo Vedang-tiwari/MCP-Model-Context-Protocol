@@ -1,0 +1,117 @@
+# =============================================================================
+# Autonomous Job Application Agent - Candidate Profile Example
+# Copy this file to config/profile.yaml and update with your real details.
+# Source of truth for factual grounding. Zero fabrication allowed.
+# =============================================================================
+
+identity:
+  full_name: "Alex Mercer"
+  email: "alex.mercer@example.com"
+  phone: "+1 (555) 019-2834"
+  location:
+    city: "San Francisco"
+    state: "CA"
+    country: "United States"
+  tagline: "Full Stack & AI Engineer | Open to Remote and Relocation"
+  links:
+    linkedin: "https://www.linkedin.com/in/alexmercer-dev"
+    github: "https://github.com/alexmercer-dev"
+    portfolio: "https://alexmercer.dev"
+
+work_authorization:
+  countries_authorized: ["US"]
+  needs_sponsorship: false
+  notice_period_days: 14
+  willing_to_relocate: true
+  remote_preference: ["remote", "hybrid", "onsite"]
+
+education:
+  - degree: "Bachelor of Science in Computer Science"
+    institution: "University of California, Berkeley"
+    field_of_study: "Computer Science"
+    graduation_year: 2022
+    dates: "08/2018 – 05/2022"
+    coursework:
+      - "Data Structures & Algorithms"
+      - "Operating Systems"
+      - "Database Systems"
+      - "Artificial Intelligence"
+      - "Computer Networks"
+
+experience:
+  - company: "TechNova Solutions"
+    title: "Senior Software Engineer"
+    dates: "06/2022 – Present"
+    location: "San Francisco, CA (Hybrid)"
+    bullets:
+      - "Architected real-time data ingestion pipelines handling 2M+ records daily with Python, FastAPI, and Playwright."
+      - "Built resilient microservices and agentic workflow integrations using Python, FastAPI, and PostgreSQL, cutting p99 latency by 45%."
+      - "Integrated Redis caching, Docker containerization, and GitHub Actions CI/CD automation with 99.9% uptime."
+
+  - company: "Apex Cloud Systems"
+    title: "Software Engineer"
+    dates: "06/2020 – 05/2022"
+    location: "Remote"
+    bullets:
+      - "Developed event-driven data streaming services with Kafka and Python, processing high-throughput telemetry data."
+      - "Automated end-to-end integration tests and deployed scalable AWS Lambda serverless functions."
+      - "Maintained high code quality and test coverage across distributed backend microservices."
+
+projects:
+  - name: "Autonomous Job Scout & Application System"
+    dates: "2024"
+    role: "Lead Creator"
+    technologies: "Python, FastAPI, Playwright, Model Context Protocol (MCP), SQLite, Groq, Ollama"
+    bullets:
+      - "Engineered 24/7 autonomous job scout and application agent monitoring 30+ career platforms in real-time."
+      - "Built stealth Playwright browser dispatcher reusing authenticated Chrome profiles with CDP session reuse."
+      - "Implemented dynamic LLM screening question solver grounded strictly in structured candidate truth."
+
+  - name: "High-Throughput Event Streaming Pipeline"
+    dates: "2023"
+    role: "Core Developer"
+    technologies: "Python, Redis, PostgreSQL, Docker, AsyncIO"
+    bullets:
+      - "Engineered distributed streaming architecture with sub-10ms delivery for 500k+ events/sec."
+      - "Designed automated retry and dead-letter queues ensuring zero data loss during network partitions."
+
+skills:
+  strong:
+    - "Python"
+    - "FastAPI"
+    - "Playwright"
+    - "TypeScript"
+    - "Docker"
+    - "PostgreSQL"
+    - "SQLite"
+    - "Redis"
+    - "Model Context Protocol (MCP)"
+    - "Git"
+  familiar:
+    - "React"
+    - "Next.js"
+    - "AWS"
+    - "Kubernetes"
+    - "Kafka"
+    - "GraphQL"
+    - "TailwindCSS"
+  databases:
+    - "PostgreSQL"
+    - "SQLite"
+    - "Redis"
+    - "MongoDB"
+
+preferences:
+  target_roles:
+    - "Software Engineer"
+    - "Senior Software Engineer"
+    - "AI Engineer"
+    - "Full Stack Engineer"
+    - "Python Developer"
+  locations:
+    - "Remote"
+    - "San Francisco, CA"
+    - "New York, NY"
+  max_job_age_hours: 24
+  match_threshold_percent: 70
+  auto_apply: false
