@@ -9,9 +9,18 @@ env/
 ENV/
 .venv/
 
-# Secrets and environment variables
+# Secrets, tokens and API keys
 .env
+.env.*
+.env.local
 !.env.example
+*gemini*key*
+*GEMINI*KEY*
+*api_key*
+*API_KEY*
+*.key
+credentials*.json
+service-account*.json
 
 # Candidate private profiles, commands & sensitive data
 commands.txt
